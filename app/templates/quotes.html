@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Storico Preventivi{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50" x-data="quotesPage()">
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-lg min-h-screen fixed">
+            <div class="p-6">
+                <a href="/" class="text-2xl font-bold text-primary-600">GenPreventiva</a>
+            </div>
+            <nav class="mt-6">
+                <a href="/dashboard" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="/chat" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                    </svg>
+                    Chat AI
+                </a>
+                <a href="/quotes" class="flex items-center px-6 py-3 bg-primary-50 text-primary-600 border-r-4 border-primary-600">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    Preventivi
+                </a>
+                <a href="/learning" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    Insegnamento
+                </a>
+            </nav>
+
+            <!-- User section -->
+            <div class="absolute bottom-0 w-full p-4 border-t">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-medium text-gray-900" x-text="user?.username"></p>
+                        <p class="text-sm text-gray-500" x-text="user?.email"></p>
+                    </div>
+                    <button @click="logout()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 ml-64 p-8">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Storico Preventivi</h1>
+                    <p class="text-gray-600 mt-1">Tutti i preventivi generati dal sistema</p>
+                </div>
+                <a href="/chat" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
+                    Nuovo Preventivo
+                </a>
+            </div>
+
+            <!-- Quotes List -->
+            <div class="bg-white rounded-xl shadow-sm">
+                <div x-show="quotes.length === 0" class="text-center py-12">
+                    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <p class="text-gray-500 mb-4">Nessun preventivo generato</p>
+                    <a href="/chat" class="text-primary-600 hover:underline">Genera il tuo primo preventivo</a>
+                </div>
+
+                <div x-show="quotes.length > 0" class="divide-y">
+                    <template x-for="quote in quotes" :key="quote.id">
+                        <div
+                            class="p-6 hover:bg-gray-50 cursor-pointer transition"
+                            @click="viewQuote(quote.id)"
+                        >
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-gray-900" x-text="quote.original_filename"></h3>
+                                    <p class="text-sm text-gray-500 mt-1" x-text="formatDate(quote.created_at)"></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-2xl font-bold text-primary-600" x-text="quote.estimated_cost ? '€ ' + quote.estimated_cost.toFixed(2) : 'N/D'"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Quote Detail Modal -->
+            <div
+                x-show="selectedQuote"
+                x-cloak
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                @click.self="selectedQuote = null"
+            >
+                <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+                        <h2 class="text-xl font-semibold text-gray-900">Dettaglio Preventivo</h2>
+                        <button @click="selectedQuote = null" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="p-6" x-show="selectedQuote">
+                        <!-- Quote Info -->
+                        <div class="grid md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Costo Stimato</p>
+                                <p class="text-2xl font-bold text-primary-600" x-text="selectedQuote?.estimated_cost ? '€ ' + selectedQuote.estimated_cost.toFixed(2) : 'N/D'"></p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Macchina</p>
+                                <p class="font-semibold" x-text="selectedQuote?.machine_type || 'N/D'"></p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="text-sm text-gray-500">Esempi Usati</p>
+                                <p class="font-semibold" x-text="selectedQuote?.similar_examples_count || 0"></p>
+                            </div>
+                        </div>
+
+                        <!-- AI Response -->
+                        <div class="mb-6">
+                            <h3 class="font-semibold text-gray-900 mb-2">Analisi AI</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg markdown whitespace-pre-wrap" x-html="formatMessage(selectedQuote?.ai_response || '')"></div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex justify-between items-center pt-4 border-t">
+                            <button
+                                @click="convertToExample(selectedQuote.id)"
+                                class="text-green-600 hover:text-green-700 font-medium"
+                            >
+                                Converti in Esempio di Apprendimento
+                            </button>
+                            <button
+                                @click="selectedQuote = null"
+                                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Convert Modal -->
+            <div
+                x-show="showConvertModal"
+                x-cloak
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                @click.self="showConvertModal = false"
+            >
+                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Converti in Esempio</h2>
+                    <p class="text-gray-600 mb-4">Inserisci il costo reale per aggiungere questo preventivo come esempio di apprendimento.</p>
+
+                    <form @submit.prevent="submitConvert">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Titolo</label>
+                                <input
+                                    type="text"
+                                    x-model="convertForm.title"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    placeholder="Nome descrittivo"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Costo Reale (EUR)</label>
+                                <input
+                                    type="number"
+                                    x-model="convertForm.actual_cost"
+                                    required
+                                    step="0.01"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    placeholder="150.00"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Note (opzionale)</label>
+                                <input
+                                    type="text"
+                                    x-model="convertForm.notes"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                    placeholder="Note aggiuntive"
+                                >
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button
+                                type="button"
+                                @click="showConvertModal = false"
+                                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                type="submit"
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                            >
+                                Converti
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function quotesPage() {
+        return {
+            quotes: [],
+            selectedQuote: null,
+            showConvertModal: false,
+            convertQuoteId: null,
+            convertForm: {
+                title: '',
+                actual_cost: '',
+                notes: ''
+            },
+
+            async init() {
+                await this.loadQuotes();
+            },
+
+            async loadQuotes() {
+                try {
+                    this.quotes = await api.get('/api/quotes/');
+                } catch (err) {
+                    console.error('Error loading quotes:', err);
+                }
+            },
+
+            async viewQuote(id) {
+                try {
+                    this.selectedQuote = await api.get(`/api/quotes/${id}`);
+                } catch (err) {
+                    console.error('Error loading quote:', err);
+                }
+            },
+
+            formatDate(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('it-IT', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            },
+
+            formatMessage(content) {
+                if (!content) return '';
+                return content
+                    .replace(/## (.*)/g, '<h2>$1</h2>')
+                    .replace(/- (.*)/g, '<li>$1</li>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\n/g, '<br>');
+            },
+
+            convertToExample(quoteId) {
+                this.convertQuoteId = quoteId;
+                this.convertForm = {
+                    title: '',
+                    actual_cost: this.selectedQuote?.estimated_cost || '',
+                    notes: ''
+                };
+                this.showConvertModal = true;
+            },
+
+            async submitConvert() {
+                try {
+                    await api.post(`/api/quotes/${this.convertQuoteId}/convert-to-example?title=${encodeURIComponent(this.convertForm.title)}&actual_cost=${this.convertForm.actual_cost}&notes=${encodeURIComponent(this.convertForm.notes || '')}`);
+                    alert('Preventivo convertito in esempio di apprendimento!');
+                    this.showConvertModal = false;
+                    this.selectedQuote = null;
+                } catch (err) {
+                    alert('Errore: ' + err.message);
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

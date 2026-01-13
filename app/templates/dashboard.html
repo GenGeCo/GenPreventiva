@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-gray-50" x-data="dashboardPage()">
+    <!-- Sidebar + Main Content Layout -->
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-lg min-h-screen fixed">
+            <div class="p-6">
+                <a href="/" class="text-2xl font-bold text-primary-600">GenPreventiva</a>
+            </div>
+            <nav class="mt-6">
+                <a href="/dashboard" class="flex items-center px-6 py-3 bg-primary-50 text-primary-600 border-r-4 border-primary-600">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="/chat" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                    </svg>
+                    Chat AI
+                </a>
+                <a href="/quotes" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    Preventivi
+                </a>
+                <a href="/learning" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    Insegnamento
+                </a>
+            </nav>
+
+            <!-- User section -->
+            <div class="absolute bottom-0 w-full p-4 border-t">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-medium text-gray-900" x-text="user?.username"></p>
+                        <p class="text-sm text-gray-500" x-text="user?.email"></p>
+                    </div>
+                    <button @click="logout()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 ml-64 p-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+
+            <!-- Quick Actions -->
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <!-- New Quote -->
+                <a href="/chat" class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition group">
+                    <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary-200 transition">
+                        <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Nuovo Preventivo</h3>
+                    <p class="text-gray-600 text-sm mt-1">Carica un disegno e ottieni una stima</p>
+                </a>
+
+                <!-- Add Example -->
+                <a href="/learning" class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition group">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-200 transition">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Insegna al Sistema</h3>
+                    <p class="text-gray-600 text-sm mt-1">Aggiungi preventivi passati per migliorare le stime</p>
+                </a>
+
+                <!-- View History -->
+                <a href="/quotes" class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition group">
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-200 transition">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Storico Preventivi</h3>
+                    <p class="text-gray-600 text-sm mt-1">Visualizza e gestisci i preventivi generati</p>
+                </a>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-500 text-sm">Preventivi Generati</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.totalQuotes">-</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-500 text-sm">Esempi nel Sistema</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.totalExamples">-</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-500 text-sm">Vettori in Memoria</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-2" x-text="stats.vectorCount">-</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <p class="text-gray-500 text-sm">Precisione Sistema</p>
+                    <p class="text-3xl font-bold mt-2" :class="stats.totalExamples >= 30 ? 'text-green-600' : stats.totalExamples >= 10 ? 'text-yellow-600' : 'text-red-600'"
+                       x-text="stats.totalExamples >= 30 ? 'Ottima' : stats.totalExamples >= 10 ? 'Buona' : 'Da migliorare'">-</p>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Ultimi Preventivi</h2>
+                <div x-show="recentQuotes.length === 0" class="text-center py-8 text-gray-500">
+                    <p>Nessun preventivo ancora generato</p>
+                    <a href="/chat" class="text-primary-600 hover:underline">Genera il tuo primo preventivo</a>
+                </div>
+                <div x-show="recentQuotes.length > 0" class="space-y-3">
+                    <template x-for="quote in recentQuotes" :key="quote.id">
+                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                                <p class="font-medium text-gray-900" x-text="quote.original_filename"></p>
+                                <p class="text-sm text-gray-500" x-text="new Date(quote.created_at).toLocaleDateString('it-IT')"></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="font-semibold text-primary-600" x-text="quote.estimated_cost ? '€ ' + quote.estimated_cost.toFixed(2) : 'N/D'"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function dashboardPage() {
+        return {
+            stats: {
+                totalQuotes: 0,
+                totalExamples: 0,
+                vectorCount: 0
+            },
+            recentQuotes: [],
+
+            async init() {
+                await this.loadStats();
+                await this.loadRecentQuotes();
+            },
+
+            async loadStats() {
+                try {
+                    const learningStats = await api.get('/api/learning/stats');
+                    this.stats.totalExamples = learningStats.total_examples;
+                    this.stats.vectorCount = learningStats.vector_count;
+                } catch (err) {
+                    console.error('Error loading stats:', err);
+                }
+            },
+
+            async loadRecentQuotes() {
+                try {
+                    this.recentQuotes = await api.get('/api/quotes/?limit=5');
+                    this.stats.totalQuotes = this.recentQuotes.length;
+                } catch (err) {
+                    console.error('Error loading quotes:', err);
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

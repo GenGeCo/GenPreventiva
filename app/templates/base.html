@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GenPreventiva{% endblock %} - AI CNC Estimator</title>
+
+    <!-- TailwindCSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] { display: none !important; }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed #93c5fd;
+            transition: all 0.3s ease;
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Markdown rendering */
+        .markdown h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .markdown h3 { font-size: 1.1rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem; }
+        .markdown ul { list-style-type: disc; margin-left: 1.5rem; }
+        .markdown li { margin-bottom: 0.25rem; }
+        .markdown p { margin-bottom: 0.5rem; }
+    </style>
+
+    {% block head %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50" x-data="app()" x-init="init()">
+    {% block body %}{% endblock %}
+
+    <!-- Global JS -->
+    <script>
+        // API helper
+        const api = {
+            baseUrl: '',
+            token: localStorage.getItem('token'),
+
+            async request(method, endpoint, data = null) {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+
+                const options = { method, headers };
+                if (data && method !== 'GET') {
+                    options.body = JSON.stringify(data);
+                }
+
+                const response = await fetch(`${this.baseUrl}${endpoint}`, options);
+
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                    throw new Error('Non autenticato');
+                }
+
+                const json = await response.json();
+                if (!response.ok) {
+                    throw new Error(json.detail || 'Errore API');
+                }
+                return json;
+            },
+
+            async upload(endpoint, formData) {
+                const headers = {};
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+
+                const response = await fetch(`${this.baseUrl}${endpoint}`, {
+                    method: 'POST',
+                    headers,
+                    body: formData
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    throw new Error('Non autenticato');
+                }
+
+                const json = await response.json();
+                if (!response.ok) {
+                    throw new Error(json.detail || 'Errore upload');
+                }
+                return json;
+            },
+
+            get: (endpoint) => api.request('GET', endpoint),
+            post: (endpoint, data) => api.request('POST', endpoint, data),
+            put: (endpoint, data) => api.request('PUT', endpoint, data),
+            delete: (endpoint) => api.request('DELETE', endpoint)
+        };
+
+        // Base app state
+        function app() {
+            return {
+                user: JSON.parse(localStorage.getItem('user') || 'null'),
+                loading: false,
+                error: null,
+                success: null,
+
+                init() {
+                    // Check auth on protected pages
+                    const protectedPages = ['/dashboard', '/chat', '/learning', '/quotes'];
+                    if (protectedPages.includes(window.location.pathname) && !this.user) {
+                        window.location.href = '/login';
+                    }
+                },
+
+                logout() {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                },
+
+                showError(msg) {
+                    this.error = msg;
+                    setTimeout(() => this.error = null, 5000);
+                },
+
+                showSuccess(msg) {
+                    this.success = msg;
+                    setTimeout(() => this.success = null, 3000);
+                }
+            }
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
