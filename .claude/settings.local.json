@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git reset:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(ssh root@77.42.35.68 \"ls -la /opt/genpreventiva/\")",
+      "Bash(scp:*)",
+      "Bash(ssh:*)",
+      "Bash(curl:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

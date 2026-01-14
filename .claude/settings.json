@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh root@77.42.35.68 \"cd /opt/genpreventiva && git pull origin main && source venv/bin/activate && pip install -r requirements.txt && systemctl restart genpreventiva && sleep 3 && systemctl status genpreventiva --no-pager\")"
+    ]
+  }
+}

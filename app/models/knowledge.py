@@ -48,7 +48,7 @@ class KnowledgeItem(Base):
     # Metadati strutturati (dipende dal tipo)
     # Es. per COST_CORRECTION: {"piece_type": "flangia", "old_cost": 80, "new_cost": 150}
     # Es. per MACHINE_INFO: {"machine_name": "Tornio CNC", "hourly_rate": 45, "capabilities": [...]}
-    metadata = Column(JSON, nullable=True)
+    extra_data = Column(JSON, nullable=True)
 
     # Fonte della conoscenza
     source_session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=True)
@@ -77,8 +77,8 @@ class KnowledgeItem(Base):
     def to_context_string(self) -> str:
         """Genera stringa per contesto RAG"""
         parts = [f"[{self.knowledge_type.upper()}] {self.title}", self.content]
-        if self.metadata:
-            for key, value in self.metadata.items():
+        if self.extra_data:
+            for key, value in self.extra_data.items():
                 if value is not None:
                     parts.append(f"{key}: {value}")
         return "\n".join(parts)

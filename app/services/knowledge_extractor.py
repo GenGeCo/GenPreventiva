@@ -224,7 +224,7 @@ class KnowledgeExtractor:
                     title=ext.get('title', 'Informazione')[:255],
                     content=ext.get('content', ''),
                     embedding_text=embedding_text,
-                    metadata=ext.get('metadata'),
+                    extra_data=ext.get('metadata'),
                     source_session_id=session_id,
                     source_message_id=message_id,
                     related_file_id=file_id,
