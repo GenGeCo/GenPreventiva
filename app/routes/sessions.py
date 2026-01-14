@@ -404,7 +404,7 @@ async def delete_session(
 async def send_message(
     session_id: int,
     content: str = Form(...),
-    file: Optional[UploadFile] = File(None),
+    files: List[UploadFile] = File(default=[]),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     gemini: GeminiService = Depends(get_gemini_service),
@@ -412,15 +412,16 @@ async def send_message(
     extractor: KnowledgeExtractor = Depends(get_knowledge_extractor)
 ):
     """
-    Invia un messaggio nella sessione.
+    Invia un messaggio nella sessione con supporto multi-file (max 5).
 
     Questo endpoint:
     1. Salva il messaggio utente
-    2. Recupera conoscenza rilevante dal vector DB
-    3. Chiama Gemini con il contesto
-    4. Salva la risposta
-    5. Estrae automaticamente conoscenza dalla conversazione
-    6. Ritorna tutto al client
+    2. Salva tutti i file allegati (max 5)
+    3. Recupera conoscenza rilevante dal vector DB
+    4. Chiama Gemini con il contesto e tutti i file
+    5. Salva la risposta
+    6. Estrae automaticamente conoscenza dalla conversazione
+    7. Ritorna tutto al client
     """
     # Verifica sessione
     session = db.query(ChatSession).filter(
@@ -431,10 +432,15 @@ async def send_message(
     if not session:
         raise HTTPException(status_code=404, detail="Sessione non trovata")
 
-    # Gestisci file se presente
-    file_record = None
-    file_path = None
-    if file:
+    # Gestisci file multipli (max 5)
+    file_records = []
+    file_paths = []
+    MAX_FILES = 5
+
+    # Filtra file vuoti e limita a 5
+    valid_files = [f for f in files if f.filename][:MAX_FILES]
+
+    for file in valid_files:
         try:
             filename, saved_path, file_size = await pdf_service.save_drawing(
                 file, current_user.id
@@ -449,9 +455,14 @@ async def send_message(
             )
             db.add(file_record)
             db.flush()
-            file_path = str(pdf_service.get_absolute_path(saved_path))
+            file_records.append(file_record)
+            file_paths.append(str(pdf_service.get_absolute_path(saved_path)))
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            logger.warning(f"Failed to save file {file.filename}: {e}")
+            continue
+
+    # Per retrocompatibilità con il vecchio codice
+    file_record = file_records[0] if file_records else None
 
     # Salva messaggio utente
     user_msg = ChatMessage(
@@ -482,19 +493,18 @@ async def send_message(
         n_knowledge=5
     )
 
-    # Determina file path per Gemini
-    # Se non c'è nuovo file, cerca l'ultimo file della sessione
-    if not file_path:
-        last_file = db.query(ChatSessionFile).filter(
+    # Se non ci sono nuovi file, cerca gli ultimi file della sessione per contesto
+    if not file_paths:
+        recent_files = db.query(ChatSessionFile).filter(
             ChatSessionFile.session_id == session_id
-        ).order_by(desc(ChatSessionFile.created_at)).first()
-        if last_file:
-            file_path = str(pdf_service.get_absolute_path(last_file.file_path))
+        ).order_by(desc(ChatSessionFile.created_at)).limit(5).all()
+        for f in recent_files:
+            file_paths.append(str(pdf_service.get_absolute_path(f.file_path)))
 
-    # Chiama Gemini
+    # Chiama Gemini con tutti i file
     result = await gemini.chat(
         message=content,
-        file_path=file_path,
+        file_paths=file_paths,  # Lista di path invece di singolo
         history=history,
         knowledge_context=relevant.get('knowledge', []),
         examples_context=relevant.get('examples', [])

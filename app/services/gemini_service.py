@@ -268,17 +268,17 @@ Rispondi in questo formato:
     async def chat(
         self,
         message: str,
-        file_path: Optional[str] = None,
+        file_paths: Optional[List[str]] = None,
         history: Optional[List[Dict]] = None,
         knowledge_context: Optional[List[Dict]] = None,
         examples_context: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """
-        Chat interattiva con contesto opzionale di un disegno e conoscenza aziendale
+        Chat interattiva con contesto opzionale di più disegni e conoscenza aziendale
 
         Args:
             message: Messaggio utente
-            file_path: Path opzionale a un disegno da discutere
+            file_paths: Lista opzionale di path a disegni da discutere (max 5)
             history: Storico conversazione
             knowledge_context: Conoscenza aziendale rilevante dal vector DB
             examples_context: Esempi simili dal vector DB
@@ -311,14 +311,22 @@ Rispondi in questo formato:
                 parts.append(f"{i}. {doc[:200]}...\n   Costo: {cost}€, Macchina: {machine}\n")
             parts.append("\n")
 
-        # Aggiungi file se presente
-        if file_path:
-            try:
-                file_part = self._load_file_as_part(file_path)
-                parts.append({"inline_data": file_part})
-                parts.append("\n[Disegno tecnico allegato sopra - ANALIZZALO]\n\n")
-            except Exception as e:
-                logger.warning(f"Could not load file for chat: {e}")
+        # Aggiungi tutti i file allegati (supporta multipli file)
+        if file_paths and len(file_paths) > 0:
+            loaded_count = 0
+            for i, fp in enumerate(file_paths[:5], 1):  # Max 5 file
+                try:
+                    file_part = self._load_file_as_part(fp)
+                    parts.append({"inline_data": file_part})
+                    loaded_count += 1
+                except Exception as e:
+                    logger.warning(f"Could not load file {fp} for chat: {e}")
+
+            if loaded_count > 0:
+                if loaded_count == 1:
+                    parts.append("\n[Disegno tecnico allegato sopra - ANALIZZALO]\n\n")
+                else:
+                    parts.append(f"\n[{loaded_count} disegni tecnici allegati sopra - ANALIZZALI TUTTI]\n\n")
 
         # Aggiungi storico conversazione
         if history:

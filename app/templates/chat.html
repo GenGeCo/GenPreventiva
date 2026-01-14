@@ -165,14 +165,26 @@
                     <template x-for="(msg, i) in messages" :key="i">
                         <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
                             <div class="max-w-2xl">
-                                <!-- File badge -->
-                                <div x-show="msg.file" class="mb-1">
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                                        </svg>
-                                        <span x-text="msg.file"></span>
-                                    </span>
+                                <!-- File badges (supporta sia singolo che multipli) -->
+                                <div x-show="msg.file || (msg.files && msg.files.length > 0)" class="mb-1 flex flex-wrap gap-1 justify-end">
+                                    <!-- Singolo file (retrocompatibilità) -->
+                                    <template x-if="msg.file && !msg.files">
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                            </svg>
+                                            <span x-text="msg.file"></span>
+                                        </span>
+                                    </template>
+                                    <!-- Multipli file -->
+                                    <template x-for="(fname, fi) in (msg.files || [])" :key="fi">
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                            </svg>
+                                            <span x-text="fname"></span>
+                                        </span>
+                                    </template>
                                 </div>
                                 <!-- Message bubble -->
                                 <div
@@ -200,28 +212,80 @@
 
                 <!-- Input -->
                 <div class="bg-white border-t p-4">
-                    <!-- File preview -->
-                    <div x-show="pendingFile" class="mb-3 p-3 bg-primary-50 border border-primary-200 rounded-lg flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                            </svg>
-                            <span class="text-sm font-medium text-primary-700" x-text="pendingFile?.name"></span>
+                    <!-- Multi-file preview grid -->
+                    <div x-show="pendingFiles.length > 0" class="mb-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-gray-500" x-text="`${pendingFiles.length}/5 file - Seleziona quali inviare`"></span>
+                            <button @click="clearPendingFiles()" class="text-xs text-red-500 hover:text-red-700">Rimuovi tutti</button>
                         </div>
-                        <button @click="pendingFile = null" class="text-primary-400 hover:text-primary-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
+                        <div class="grid grid-cols-5 gap-2">
+                            <template x-for="(pf, idx) in pendingFiles" :key="idx">
+                                <div class="relative group">
+                                    <!-- Thumbnail -->
+                                    <div
+                                        class="aspect-square rounded-lg border-2 overflow-hidden cursor-pointer transition"
+                                        :class="pf.selected ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 opacity-50'"
+                                        @click="pf.selected = !pf.selected"
+                                    >
+                                        <template x-if="pf.isImage">
+                                            <img :src="pf.url" class="w-full h-full object-cover" :alt="pf.file.name">
+                                        </template>
+                                        <template x-if="!pf.isImage">
+                                            <div class="w-full h-full bg-red-50 flex flex-col items-center justify-center">
+                                                <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                </svg>
+                                                <span class="text-xs text-red-500 mt-1">PDF</span>
+                                            </div>
+                                        </template>
+                                        <!-- Checkbox indicator -->
+                                        <div class="absolute top-1 left-1">
+                                            <div class="w-5 h-5 rounded border-2 flex items-center justify-center"
+                                                 :class="pf.selected ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-300'">
+                                                <svg x-show="pf.selected" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Actions -->
+                                    <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                        <!-- Enlarge -->
+                                        <button
+                                            @click.stop="openLightbox(pf.url, pf.file.name)"
+                                            class="w-6 h-6 bg-black/50 rounded flex items-center justify-center text-white hover:bg-black/70"
+                                            title="Ingrandisci"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                                            </svg>
+                                        </button>
+                                        <!-- Remove -->
+                                        <button
+                                            @click.stop="removePendingFile(idx)"
+                                            class="w-6 h-6 bg-red-500 rounded flex items-center justify-center text-white hover:bg-red-600"
+                                            title="Rimuovi"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <!-- Filename -->
+                                    <p class="text-xs text-gray-500 truncate mt-1 text-center" x-text="pf.file.name"></p>
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
                     <div class="flex items-end gap-3">
-                        <!-- Upload -->
-                        <label class="cursor-pointer p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition">
+                        <!-- Upload (multiple) -->
+                        <label class="cursor-pointer p-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition relative" :class="{'opacity-50': pendingFiles.length >= 5}">
                             <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                             </svg>
-                            <input type="file" @change="selectFile" accept=".pdf,.png,.jpg,.jpeg" class="hidden">
+                            <input type="file" @change="selectFiles" accept=".pdf,.png,.jpg,.jpeg" multiple class="hidden" :disabled="pendingFiles.length >= 5">
+                            <span x-show="pendingFiles.length > 0" class="absolute -top-1 -right-1 w-5 h-5 bg-primary-600 text-white text-xs rounded-full flex items-center justify-center" x-text="pendingFiles.filter(f=>f.selected).length"></span>
                         </label>
 
                         <!-- Text input -->
@@ -240,7 +304,7 @@
                         <!-- Send -->
                         <button
                             @click="send()"
-                            :disabled="loading || (!input.trim() && !pendingFile)"
+                            :disabled="loading || (!input.trim() && pendingFiles.filter(f=>f.selected).length === 0)"
                             class="p-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white rounded-xl transition"
                         >
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,6 +315,44 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Lightbox Modal per ingrandire immagini -->
+    <div x-show="lightboxOpen" x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center" style="display: none;">
+        <!-- Overlay scuro -->
+        <div class="fixed inset-0 bg-black/90" @click="closeLightbox()"></div>
+        <!-- Contenuto -->
+        <div class="relative z-10 max-w-[90vw] max-h-[90vh]">
+            <!-- Header con nome file e chiudi -->
+            <div class="absolute -top-10 left-0 right-0 flex items-center justify-between text-white">
+                <span class="text-sm" x-text="lightboxName"></span>
+                <button @click="closeLightbox()" class="text-white hover:text-gray-300">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <!-- Immagine o PDF -->
+            <template x-if="lightboxUrl && lightboxName?.toLowerCase().endsWith('.pdf')">
+                <div class="bg-white rounded-lg p-8 text-center">
+                    <svg class="w-24 h-24 mx-auto text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="text-gray-700 mb-4" x-text="lightboxName"></p>
+                    <a :href="lightboxUrl" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        Apri PDF
+                    </a>
+                </div>
+            </template>
+            <template x-if="lightboxUrl && !lightboxName?.toLowerCase().endsWith('.pdf')">
+                <img :src="lightboxUrl" class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl" :alt="lightboxName">
+            </template>
+        </div>
+        <!-- Navigazione con tastiera -->
+        <div @keydown.escape.window="closeLightbox()"></div>
     </div>
 
     <!-- Modal Conoscenze Apprese -->
@@ -393,7 +495,7 @@ function chatApp() {
     return {
         messages: [],
         input: '',
-        pendingFile: null,
+        pendingFiles: [],  // Array di {file, url, selected}
         currentFile: null,
         currentFileUrl: null,
         loading: false,
@@ -410,6 +512,10 @@ function chatApp() {
         // Aggiungi conoscenza
         showAddKnowledgeForm: false,
         newKnowledge: { type: 'costo', title: '', content: '' },
+        // Lightbox
+        lightboxOpen: false,
+        lightboxUrl: null,
+        lightboxName: null,
 
         async init() {
             // Carica sessioni
@@ -492,36 +598,94 @@ function chatApp() {
             return d.toLocaleDateString('it');
         },
 
-        selectFile(e) {
-            const file = e.target.files[0];
-            if (file) {
-                this.pendingFile = file;
+        selectFiles(e) {
+            const files = Array.from(e.target.files);
+            const MAX_FILES = 5;
+
+            // Limita a 5 file totali
+            const available = MAX_FILES - this.pendingFiles.length;
+            if (available <= 0) {
+                alert('Massimo 5 file alla volta');
+                e.target.value = '';
+                return;
+            }
+
+            const toAdd = files.slice(0, available);
+            toAdd.forEach(file => {
+                const url = URL.createObjectURL(file);
+                this.pendingFiles.push({
+                    file: file,
+                    url: url,
+                    selected: true,
+                    isImage: this.isImageFile(file)
+                });
+            });
+
+            if (files.length > available) {
+                alert(`Aggiunti solo ${available} file (max 5)`);
             }
             e.target.value = '';
         },
 
-        async send() {
-            if (!this.input.trim() && !this.pendingFile) return;
+        removePendingFile(index) {
+            const item = this.pendingFiles[index];
+            if (item?.url) {
+                URL.revokeObjectURL(item.url);
+            }
+            this.pendingFiles.splice(index, 1);
+        },
 
-            const text = this.input.trim() || 'Analizza questo disegno e fammi un preventivo';
-            const file = this.pendingFile;
+        clearPendingFiles() {
+            this.pendingFiles.forEach(f => {
+                if (f.url) URL.revokeObjectURL(f.url);
+            });
+            this.pendingFiles = [];
+        },
+
+        openLightbox(url, name) {
+            this.lightboxUrl = url;
+            this.lightboxName = name;
+            this.lightboxOpen = true;
+        },
+
+        closeLightbox() {
+            this.lightboxOpen = false;
+            this.lightboxUrl = null;
+            this.lightboxName = null;
+        },
+
+        isImageFile(file) {
+            if (!file) return false;
+            const name = file.name?.toLowerCase() || '';
+            return name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg');
+        },
+
+        getSelectedFiles() {
+            return this.pendingFiles.filter(f => f.selected).map(f => f.file);
+        },
+
+        async send() {
+            const selectedFiles = this.getSelectedFiles();
+            if (!this.input.trim() && selectedFiles.length === 0) return;
+
+            const text = this.input.trim() || 'Analizza questi disegni e fammi un preventivo';
+            const fileNames = selectedFiles.map(f => f.name);
 
             // Add user message
             this.messages.push({
                 role: 'user',
                 content: text,
-                file: file?.name
+                files: fileNames
             });
 
             this.input = '';
-            this.pendingFile = null;
             this.loading = true;
             this.justLearned = null;
             this.scrollDown();
 
-            // Show file panel
-            if (file) {
-                this.setCurrentFile(file);
+            // Show first file in panel
+            if (selectedFiles.length > 0) {
+                this.setCurrentFile(selectedFiles[0]);
             }
 
             try {
@@ -533,7 +697,10 @@ function chatApp() {
 
                 const formData = new FormData();
                 formData.append('content', text);
-                if (file) formData.append('file', file);
+                // Append tutti i file selezionati
+                selectedFiles.forEach((file, i) => {
+                    formData.append('files', file);
+                });
 
                 const res = await api.upload(`/api/sessions/${this.sessionId}/messages`, formData);
 
@@ -549,6 +716,9 @@ function chatApp() {
                     this.knowledgeCount += res.knowledge_learned.length;
                     setTimeout(() => this.justLearned = null, 4000);
                 }
+
+                // Clear pending files after send
+                this.clearPendingFiles();
 
             } catch (e) {
                 this.messages.push({
