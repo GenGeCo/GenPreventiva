@@ -148,8 +148,8 @@
                     localStorage.setItem('user', JSON.stringify(response.user));
                     api.token = response.access_token;
 
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard';
+                    // Redirect to chat
+                    window.location.href = '/chat';
                 } catch (err) {
                     this.error = err.message || 'Errore durante la registrazione';
                 } finally {

@@ -99,8 +99,9 @@ async def register_page(request: Request):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
-    """Dashboard principale"""
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    """Redirect a chat - il dashboard È la chat"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/chat", status_code=302)
 
 
 @app.get("/chat", response_class=HTMLResponse)

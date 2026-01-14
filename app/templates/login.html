@@ -16,8 +16,13 @@
         </div>
 
         <!-- Error message -->
-        <div x-show="error" x-cloak class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            <span x-text="error"></span>
+        <div x-show="error" x-transition class="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 rounded-lg font-medium">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <span x-text="error"></span>
+            </div>
         </div>
 
         <!-- Login Form -->
@@ -85,10 +90,11 @@
                     localStorage.setItem('user', JSON.stringify(response.user));
                     api.token = response.access_token;
 
-                    // Redirect to dashboard
-                    window.location.href = '/dashboard';
+                    // Redirect to chat
+                    window.location.href = '/chat';
                 } catch (err) {
-                    this.error = err.message || 'Errore durante il login';
+                    console.error('Login error:', err);
+                    this.error = err.message || 'Email o password non corretti';
                 } finally {
                     this.loading = false;
                 }

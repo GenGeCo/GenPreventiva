@@ -332,7 +332,86 @@ ssh root@77.42.35.68 "cat /etc/nginx/sites-enabled/genpreventiva"
 | Redis DB | `1` |
 | Secret | `6CJwuDhHYxPf31mia3YeTCyJek9ZTezHdEVDMjRWVUo` |
 
-**File completo**: vedi `CREDENZIALI_GENPREVENTIVA.txt`
+---
+
+## Account Utente App (Login Web)
+
+| Campo | Valore |
+|-------|--------|
+| Email | `edilkit@gmail.com` |
+| Username | `gruppogeas` |
+| Password | `Test1234` |
+
+---
+
+## Chiave SSH Privata
+
+Salva in un file (es. `~/.ssh/genpreventiva_key`) con `chmod 600`:
+
+```
+-----BEGIN OPENSSH PRIVATE KEY-----
+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
+-----END OPENSSH PRIVATE KEY-----
+```
+
+### Uso chiave da altro PC
+
+```bash
+# 1. Salva la chiave in un file
+nano ~/.ssh/genpreventiva_key   # incolla contenuto
+
+# 2. Imposta permessi
+chmod 600 ~/.ssh/genpreventiva_key
+
+# 3. Connettiti
+ssh -i ~/.ssh/genpreventiva_key root@77.42.35.68
+```
 
 ---
 
