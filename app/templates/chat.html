@@ -180,6 +180,7 @@
                         <!-- Text input -->
                         <div class="flex-1 relative">
                             <textarea
+                                x-ref="messageInput"
                                 x-model="input"
                                 @keydown.enter.prevent="if(!$event.shiftKey) send()"
                                 placeholder="Descrivi il pezzo o chiedi il preventivo..."
@@ -417,6 +418,8 @@ function chatApp() {
             } finally {
                 this.loading = false;
                 this.scrollDown();
+                // Mantieni focus sul campo input
+                this.$nextTick(() => this.$refs.messageInput.focus());
             }
         },
 
