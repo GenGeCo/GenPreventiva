@@ -23,16 +23,18 @@ from services.chromadb_service import get_chromadb_service
 logger = logging.getLogger(__name__)
 
 # Prompt per l'estrazione della conoscenza
-EXTRACTION_PROMPT = """Analizza questo scambio di messaggi tra utente e assistente in un sistema di preventivazione CNC.
+EXTRACTION_PROMPT = """Analizza questo scambio di messaggi tra utente e assistente in un sistema di preventivazione industriale.
 
 CONVERSAZIONE:
 {conversation}
 
-Il tuo compito è identificare se l'utente sta:
-1. CORREGGENDO una stima dell'AI (es. "no, costa 150 non 80")
-2. FORNENDO nuove informazioni (es. "il nostro tornio costa 45€/ora")
-3. SPECIFICANDO dettagli tecnici (es. "usiamo sempre acciaio C45 per questi pezzi")
-4. CONFERMANDO qualcosa (es. "sì, esatto")
+Il tuo compito è identificare se l'utente sta fornendo QUALSIASI informazione utile per futuri preventivi:
+1. COSTI: prezzi, costi orari, costi materiali, margini (es. "il laser costa 80€/ora", "l'alluminio costa 3€/kg")
+2. TEMPI: tempi di lavorazione, setup, consegna (es. "ci vogliono 2 ore", "il setup richiede 30 minuti")
+3. MACCHINARI: macchine disponibili, capacità (es. "abbiamo un laser da 3kW", "il tornio fa pezzi fino a 500mm")
+4. MATERIALI: materiali usati, preferenze (es. "usiamo sempre acciaio inox 304", "preferisco alluminio 6082")
+5. CORREZIONI: quando l'utente corregge una stima dell'AI (es. "no, costa 150 non 80")
+6. PROCESSI: come vengono fatte le lavorazioni (es. "prima tagliamo poi pieghiamo")
 
 Per ogni informazione utile trovata, estrai in formato JSON:
 
@@ -143,8 +145,13 @@ class KnowledgeExtractor:
         prompt = EXTRACTION_PROMPT.format(conversation=conversation)
 
         try:
+            logger.info(f"=== KNOWLEDGE EXTRACTION START ===")
+            logger.info(f"Conversation to analyze:\n{conversation[:500]}...")
+
             response = await model.generate_content_async(prompt)
             text = response.text.strip()
+
+            logger.info(f"Raw Gemini response:\n{text[:500]}...")
 
             # Estrai JSON dalla risposta
             json_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
@@ -160,6 +167,11 @@ class KnowledgeExtractor:
 
             result = json.loads(text)
 
+            logger.info(f"Parsed result: {len(result.get('extractions', []))} extractions found")
+            if result.get('extractions'):
+                for i, ext in enumerate(result['extractions']):
+                    logger.info(f"  Extraction {i+1}: {ext.get('type')} - {ext.get('title')}")
+
             # Valida struttura
             if "extractions" not in result:
                 result["extractions"] = []
@@ -168,13 +180,14 @@ class KnowledgeExtractor:
             if "summary" not in result:
                 result["summary"] = ""
 
+            logger.info(f"=== KNOWLEDGE EXTRACTION END: {len(result['extractions'])} items ===")
             return result
 
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse extraction JSON: {e}")
+            logger.warning(f"Failed to parse extraction JSON: {e}\nRaw text: {text[:200]}")
             return {"extractions": [], "has_correction": False, "summary": "Errore parsing"}
         except Exception as e:
-            logger.error(f"Error in knowledge extraction: {e}")
+            logger.error(f"Error in knowledge extraction: {e}", exc_info=True)
             return {"extractions": [], "has_correction": False, "summary": f"Errore: {str(e)}"}
 
     def save_extracted_knowledge(

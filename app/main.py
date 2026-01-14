@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Sistema di preventivazione automatica per lavorazioni CNC basato su AI",
+    description="Sistema di preventivazione automatica basato su AI - Impara i tuoi costi e tempi",
     lifespan=lifespan
 )
 
