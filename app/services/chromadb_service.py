@@ -1,6 +1,6 @@
 """
 ChromaDB Service - Vector database per similarity search
-Gestisce embeddings e ricerca semantica dei disegni tecnici
+Gestisce embeddings e ricerca semantica dei disegni tecnici e della conoscenza aziendale
 """
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -12,11 +12,15 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+# Nome collection per conoscenza aziendale
+KNOWLEDGE_COLLECTION_NAME = "cnc_knowledge"
+
 
 class ChromaDBService:
     def __init__(self):
         self._client = None
         self._collection = None
+        self._knowledge_collection = None
         self._embedding_model = None
 
     def _get_client(self) -> chromadb.PersistentClient:
@@ -32,7 +36,7 @@ class ChromaDBService:
         return self._client
 
     def _get_collection(self):
-        """Ottiene o crea la collection per i disegni CNC"""
+        """Ottiene o crea la collection per i disegni CNC (learning examples)"""
         if self._collection is None:
             client = self._get_client()
             self._collection = client.get_or_create_collection(
@@ -40,6 +44,16 @@ class ChromaDBService:
                 metadata={"description": "CNC technical drawings embeddings"}
             )
         return self._collection
+
+    def _get_knowledge_collection(self):
+        """Ottiene o crea la collection per la conoscenza aziendale"""
+        if self._knowledge_collection is None:
+            client = self._get_client()
+            self._knowledge_collection = client.get_or_create_collection(
+                name=KNOWLEDGE_COLLECTION_NAME,
+                metadata={"description": "Company knowledge learned from conversations"}
+            )
+        return self._knowledge_collection
 
     def _get_embedding(self, text: str) -> List[float]:
         """Genera embedding usando Google text-embedding-004"""
@@ -196,6 +210,189 @@ class ChromaDBService:
         except Exception as e:
             logger.error(f"Error resetting collection: {e}")
             return False
+
+    # ==================== KNOWLEDGE MANAGEMENT ====================
+
+    def add_knowledge_item(
+        self,
+        knowledge_id: int,
+        user_id: int,
+        embedding_text: str,
+        knowledge_type: str,
+        metadata: Dict[str, Any]
+    ) -> str:
+        """
+        Aggiunge un elemento di conoscenza aziendale al vector store
+
+        Args:
+            knowledge_id: ID del KnowledgeItem nel DB
+            user_id: ID dell'utente proprietario
+            embedding_text: Testo da cui generare l'embedding
+            knowledge_type: Tipo di conoscenza (cost_correction, machine_info, etc.)
+            metadata: Metadati associati
+
+        Returns:
+            chroma_id: ID univoco nel vector store
+        """
+        collection = self._get_knowledge_collection()
+        chroma_id = f"knowledge_{user_id}_{knowledge_id}_{uuid.uuid4().hex[:8]}"
+
+        try:
+            embedding = self._get_embedding(embedding_text)
+
+            # Prepara metadata (ChromaDB accetta solo tipi semplici)
+            clean_metadata = {
+                "knowledge_id": knowledge_id,
+                "user_id": user_id,
+                "knowledge_type": knowledge_type,
+                "type": "knowledge_item"
+            }
+            for key, value in metadata.items():
+                if isinstance(value, (str, int, float, bool)):
+                    clean_metadata[key] = value
+                elif value is not None:
+                    clean_metadata[key] = str(value)
+
+            collection.add(
+                ids=[chroma_id],
+                embeddings=[embedding],
+                documents=[embedding_text],
+                metadatas=[clean_metadata]
+            )
+
+            logger.info(f"Added knowledge item {knowledge_id} to ChromaDB with id {chroma_id}")
+            return chroma_id
+
+        except Exception as e:
+            logger.error(f"Error adding knowledge to ChromaDB: {e}")
+            raise
+
+    def search_knowledge(
+        self,
+        query_text: str,
+        user_id: int,
+        n_results: int = 5,
+        knowledge_types: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Cerca conoscenza aziendale rilevante per un utente specifico
+
+        Args:
+            query_text: Testo della query
+            user_id: ID dell'utente (per isolare la conoscenza)
+            n_results: Numero di risultati
+            knowledge_types: Filtra per tipi specifici (opzionale)
+
+        Returns:
+            Lista di risultati con metadata e score
+        """
+        collection = self._get_knowledge_collection()
+
+        try:
+            query_embedding = self._get_query_embedding(query_text)
+
+            # Costruisci filtro per user_id
+            where_filter = {"user_id": user_id}
+
+            # Aggiungi filtro per tipo se specificato
+            if knowledge_types and len(knowledge_types) == 1:
+                where_filter["knowledge_type"] = knowledge_types[0]
+            elif knowledge_types and len(knowledge_types) > 1:
+                where_filter = {
+                    "$and": [
+                        {"user_id": user_id},
+                        {"knowledge_type": {"$in": knowledge_types}}
+                    ]
+                }
+
+            results = collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n_results,
+                where=where_filter,
+                include=["documents", "metadatas", "distances"]
+            )
+
+            # Formatta i risultati
+            formatted_results = []
+            if results and results['ids'] and results['ids'][0]:
+                for i, chroma_id in enumerate(results['ids'][0]):
+                    formatted_results.append({
+                        "chroma_id": chroma_id,
+                        "document": results['documents'][0][i] if results['documents'] else None,
+                        "metadata": results['metadatas'][0][i] if results['metadatas'] else {},
+                        "distance": results['distances'][0][i] if results['distances'] else None,
+                        "similarity_score": 1 - results['distances'][0][i] if results['distances'] else None
+                    })
+
+            logger.info(f"Found {len(formatted_results)} knowledge items for user {user_id}")
+            return formatted_results
+
+        except Exception as e:
+            logger.error(f"Error searching knowledge in ChromaDB: {e}")
+            return []
+
+    def delete_knowledge_item(self, chroma_id: str) -> bool:
+        """Elimina un elemento di conoscenza dal vector store"""
+        collection = self._get_knowledge_collection()
+        try:
+            collection.delete(ids=[chroma_id])
+            logger.info(f"Deleted knowledge item {chroma_id} from ChromaDB")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting knowledge from ChromaDB: {e}")
+            return False
+
+    def get_knowledge_stats(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Ritorna statistiche sulla collection della conoscenza"""
+        collection = self._get_knowledge_collection()
+        stats = {
+            "name": collection.name,
+            "total_count": collection.count(),
+            "metadata": collection.metadata
+        }
+
+        # Se specificato user_id, conta per quell'utente
+        if user_id:
+            try:
+                results = collection.get(
+                    where={"user_id": user_id},
+                    include=["metadatas"]
+                )
+                stats["user_count"] = len(results['ids']) if results['ids'] else 0
+
+                # Conta per tipo
+                type_counts = {}
+                if results['metadatas']:
+                    for meta in results['metadatas']:
+                        kt = meta.get('knowledge_type', 'unknown')
+                        type_counts[kt] = type_counts.get(kt, 0) + 1
+                stats["by_type"] = type_counts
+            except Exception as e:
+                logger.warning(f"Error getting user stats: {e}")
+
+        return stats
+
+    def search_all_relevant(
+        self,
+        query_text: str,
+        user_id: int,
+        n_examples: int = 3,
+        n_knowledge: int = 5
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Cerca sia negli esempi che nella conoscenza aziendale
+        Utile per costruire un contesto completo per il RAG
+
+        Returns:
+            Dict con "examples" e "knowledge"
+        """
+        examples = self.search_similar(query_text, n_results=n_examples)
+        knowledge = self.search_knowledge(query_text, user_id, n_results=n_knowledge)
+
+        return {
+            "examples": examples,
+            "knowledge": knowledge
+        }
 
 
 # Singleton instance

@@ -1,6 +1,11 @@
 """
 Gemini Service - AI Vision per analisi disegni e generazione preventivi
 Usa Google Gemini 1.5 Pro per "vedere" i disegni tecnici come fa ChatGPT
+
+L'AI si comporta come un "Analista Tecnico Senior" esperto di:
+- Lettura disegni meccanici (ISO/ASME)
+- Lavorazioni CNC (tornitura, fresatura, foratura, etc.)
+- Preventivazione basata su esperienza
 """
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -11,6 +16,46 @@ from pathlib import Path
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# System prompt per l'Analista Tecnico Senior
+SYSTEM_PROMPT = """Sei l'Analista Tecnico Senior di GenPreventiva, esperto in:
+- Lettura disegni meccanici secondo normative ISO e ASME
+- Lavorazioni CNC: tornitura, fresatura, foratura, rettifica, EDM
+- Materiali: acciai, alluminio, ottone, plastica tecnica, titanio
+- Preventivazione precisa basata su esperienza reale
+
+IL TUO OBIETTIVO è la PRECISIONE ASSOLUTA. Per raggiungere questo obiettivo:
+
+1. ANALIZZA i disegni con attenzione metodica:
+   - Dimensioni e tolleranze
+   - Materiale e trattamenti
+   - Complessità geometrica
+   - Numero di setup necessari
+
+2. USA LA CONOSCENZA AZIENDALE che ti viene fornita:
+   - Costi orari specifici dei macchinari dell'officina
+   - Tempi reali di lavorazioni passate
+   - Preferenze su materiali e fornitori
+   - Correzioni fatte dall'utente in passato
+
+3. IMPARA CONTINUAMENTE dalle correzioni:
+   - Quando l'utente ti corregge, il sistema memorizza
+   - Nelle prossime stime userai questa esperienza
+   - Più lavori insieme, più diventi preciso
+
+4. RISPONDI in modo STRUTTURATO:
+   - Lista operazioni in ordine
+   - Tempi per operazione
+   - Macchinario consigliato per ogni step
+   - Costi dettagliati
+
+REGOLE:
+- Mai inventare dati: se non hai informazioni, chiedi
+- Preferisci la conoscenza aziendale ai valori generici
+- Sii conciso ma completo
+- Indica sempre il livello di confidenza delle stime
+
+Rispondi sempre in italiano."""
 
 
 class GeminiService:
@@ -241,54 +286,73 @@ Rispondi in questo formato:
         self,
         message: str,
         file_path: Optional[str] = None,
-        history: Optional[List[Dict]] = None
+        history: Optional[List[Dict]] = None,
+        knowledge_context: Optional[List[Dict]] = None,
+        examples_context: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """
-        Chat interattiva con contesto opzionale di un disegno
+        Chat interattiva con contesto opzionale di un disegno e conoscenza aziendale
 
         Args:
             message: Messaggio utente
             file_path: Path opzionale a un disegno da discutere
             history: Storico conversazione
+            knowledge_context: Conoscenza aziendale rilevante dal vector DB
+            examples_context: Esempi simili dal vector DB
 
         Returns:
             Risposta AI
         """
         model = self._get_model()
 
-        system_context = """Sei un assistente esperto di lavorazioni CNC e preventivazione.
-Aiuta l'utente a:
-- Capire i disegni tecnici
-- Stimare costi di lavorazione
-- Scegliere materiali e macchine appropriate
-- Rispondere a domande tecniche
+        parts = [SYSTEM_PROMPT, "\n\n"]
 
-Rispondi sempre in italiano, in modo chiaro e professionale."""
+        # Aggiungi conoscenza aziendale se presente
+        if knowledge_context and len(knowledge_context) > 0:
+            parts.append("=== CONOSCENZA AZIENDALE (da ricordare) ===\n")
+            for i, k in enumerate(knowledge_context, 1):
+                doc = k.get('document', '')
+                meta = k.get('metadata', {})
+                kt = meta.get('knowledge_type', 'info')
+                parts.append(f"{i}. [{kt.upper()}] {doc}\n")
+            parts.append("\n")
 
-        parts = [system_context, "\n\n"]
-
-        # Aggiungi storico se presente
-        if history:
-            for msg in history[-10:]:  # Ultimi 10 messaggi
-                role = "Utente" if msg.get("role") == "user" else "Assistente"
-                parts.append(f"{role}: {msg.get('content', '')}\n")
+        # Aggiungi esempi simili se presenti
+        if examples_context and len(examples_context) > 0:
+            parts.append("=== PREVENTIVI PASSATI SIMILI (riferimento) ===\n")
+            for i, ex in enumerate(examples_context, 1):
+                doc = ex.get('document', '')
+                meta = ex.get('metadata', {})
+                cost = meta.get('cost', 'N/D')
+                machine = meta.get('machine_type', 'N/D')
+                parts.append(f"{i}. {doc[:200]}...\n   Costo: {cost}€, Macchina: {machine}\n")
+            parts.append("\n")
 
         # Aggiungi file se presente
         if file_path:
             try:
                 file_part = self._load_file_as_part(file_path)
                 parts.append({"inline_data": file_part})
-                parts.append("\n[Disegno allegato sopra]\n")
+                parts.append("\n[Disegno tecnico allegato sopra - ANALIZZALO]\n\n")
             except Exception as e:
                 logger.warning(f"Could not load file for chat: {e}")
 
-        parts.append(f"\nUtente: {message}\n\nAssistente:")
+        # Aggiungi storico conversazione
+        if history:
+            parts.append("=== CONVERSAZIONE ===\n")
+            for msg in history[-10:]:  # Ultimi 10 messaggi
+                role = "UTENTE" if msg.get("role") == "user" else "ASSISTENTE"
+                parts.append(f"{role}: {msg.get('content', '')}\n\n")
+
+        parts.append(f"UTENTE: {message}\n\nASSISTENTE:")
 
         try:
             response = await model.generate_content_async(parts)
             return {
                 "success": True,
-                "response": response.text
+                "response": response.text,
+                "used_knowledge": len(knowledge_context) if knowledge_context else 0,
+                "used_examples": len(examples_context) if examples_context else 0
             }
         except Exception as e:
             logger.error(f"Chat error: {e}")

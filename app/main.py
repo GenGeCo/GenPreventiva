@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse
 
 from config import settings
 from models.database import init_db
-from routes import auth_router, learning_router, quotes_router, chat_router
+from routes import auth_router, learning_router, quotes_router, chat_router, sessions_router
 
 # Logging configuration
 logging.basicConfig(
@@ -75,6 +75,7 @@ app.include_router(auth_router)
 app.include_router(learning_router)
 app.include_router(quotes_router)
 app.include_router(chat_router)
+app.include_router(sessions_router)
 
 
 # Frontend routes
@@ -142,7 +143,8 @@ async def api_info():
             "auth": "/api/auth",
             "learning": "/api/learning",
             "quotes": "/api/quotes",
-            "chat": "/api/chat"
+            "chat": "/api/chat",
+            "sessions": "/api/sessions"
         }
     }
 

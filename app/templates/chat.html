@@ -1,36 +1,80 @@
 {% extends "base.html" %}
 
-{% block title %}Chat AI{% endblock %}
+{% block title %}Chat AI - GenPreventiva{% endblock %}
 
 {% block body %}
 <div class="min-h-screen bg-gray-50" x-data="chatPage()">
-    <!-- Sidebar + Main Content Layout -->
-    <div class="flex">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white shadow-lg min-h-screen fixed">
-            <div class="p-6">
-                <a href="/" class="text-2xl font-bold text-primary-600">GenPreventiva</a>
+    <div class="flex h-screen">
+        <!-- Sidebar Sessioni -->
+        <aside class="w-64 bg-white shadow-lg flex flex-col">
+            <div class="p-4 border-b">
+                <a href="/" class="text-xl font-bold text-primary-600">GenPreventiva</a>
+                <p class="text-xs text-gray-500 mt-1">Analista Tecnico AI</p>
             </div>
-            <nav class="mt-6">
-                <a href="/dashboard" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+
+            <!-- Nuova Sessione -->
+            <div class="p-3 border-b">
+                <button
+                    @click="createNewSession()"
+                    class="w-full flex items-center justify-center gap-2 py-2 px-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Nuova Sessione
+                </button>
+            </div>
+
+            <!-- Lista Sessioni -->
+            <div class="flex-1 overflow-y-auto">
+                <template x-for="session in sessions" :key="session.id">
+                    <div
+                        @click="loadSession(session.id)"
+                        class="p-3 border-b cursor-pointer hover:bg-gray-50 transition"
+                        :class="currentSession?.id === session.id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''"
+                    >
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-gray-900 truncate" x-text="session.title"></p>
+                                <p class="text-xs text-gray-500">
+                                    <span x-text="session.message_count"></span> messaggi
+                                    <span x-show="session.knowledge_extracted > 0" class="text-green-600">
+                                        • <span x-text="session.knowledge_extracted"></span> apprese
+                                    </span>
+                                </p>
+                            </div>
+                            <button
+                                @click.stop="archiveSession(session.id)"
+                                class="text-gray-400 hover:text-red-500"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Stats Conoscenza -->
+            <div class="p-3 border-t bg-gray-50">
+                <div class="flex items-center gap-2 text-sm text-gray-600">
+                    <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    <span>Conoscenze apprese: <strong x-text="knowledgeStats.total || 0"></strong></span>
+                </div>
+            </div>
+
+            <!-- Nav Links -->
+            <nav class="border-t">
+                <a href="/dashboard" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50">
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                     </svg>
                     Dashboard
                 </a>
-                <a href="/chat" class="flex items-center px-6 py-3 bg-primary-50 text-primary-600 border-r-4 border-primary-600">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                    </svg>
-                    Chat AI
-                </a>
-                <a href="/quotes" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                    </svg>
-                    Preventivi
-                </a>
-                <a href="/learning" class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50">
+                <a href="/learning" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50">
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                     </svg>
@@ -38,151 +82,201 @@
                 </a>
             </nav>
 
-            <!-- User section -->
-            <div class="absolute bottom-0 w-full p-4 border-t">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="font-medium text-gray-900" x-text="user?.username"></p>
-                        <p class="text-sm text-gray-500" x-text="user?.email"></p>
-                    </div>
-                    <button @click="logout()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                        </svg>
-                    </button>
+            <!-- User -->
+            <div class="p-3 border-t flex items-center justify-between">
+                <div class="min-w-0">
+                    <p class="font-medium text-gray-900 truncate" x-text="user?.username"></p>
                 </div>
+                <button @click="logout()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                </button>
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 ml-64 flex flex-col h-screen">
-            <!-- Header -->
-            <div class="bg-white border-b px-6 py-4 flex items-center justify-between">
-                <div>
-                    <h1 class="text-xl font-semibold text-gray-900">Chat con AI</h1>
-                    <p class="text-sm text-gray-500">Carica un disegno per ottenere un preventivo</p>
+        <!-- Main Content: Split View -->
+        <main class="flex-1 flex">
+            <!-- Left Panel: File/Disegni -->
+            <div class="w-1/3 bg-gray-100 border-r flex flex-col" x-show="currentSession">
+                <div class="p-4 border-b bg-white">
+                    <h2 class="font-semibold text-gray-900">Disegni Sessione</h2>
+                    <p class="text-sm text-gray-500">Carica disegni per analisi</p>
                 </div>
-                <button
-                    @click="showQuoteMode = !showQuoteMode"
-                    class="px-4 py-2 rounded-lg transition"
-                    :class="showQuoteMode ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'"
-                >
-                    <span x-text="showQuoteMode ? 'Modalita Preventivo' : 'Modalita Chat'"></span>
-                </button>
-            </div>
 
-            <!-- Chat Messages -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-4" id="chatMessages">
-                <!-- Welcome message -->
-                <div x-show="messages.length === 0" class="text-center py-12">
-                    <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                <!-- Upload Area -->
+                <div class="p-4">
+                    <label class="block w-full p-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 hover:bg-white transition text-center">
+                        <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                         </svg>
-                    </div>
-                    <h2 class="text-xl font-semibold text-gray-900 mb-2">Benvenuto in GenPreventiva</h2>
-                    <p class="text-gray-600 max-w-md mx-auto">
-                        Carica un disegno tecnico per ottenere un preventivo, oppure fai domande su lavorazioni CNC.
-                    </p>
+                        <span class="text-sm text-gray-600">Carica PDF o immagine</span>
+                        <input type="file" @change="uploadFile" accept=".pdf,.png,.jpg,.jpeg" class="hidden">
+                    </label>
                 </div>
 
-                <!-- Messages -->
-                <template x-for="(msg, index) in messages" :key="index">
-                    <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                <!-- Lista File -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                    <template x-for="file in sessionFiles" :key="file.id">
                         <div
-                            class="chat-bubble rounded-2xl px-4 py-3"
-                            :class="msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-white shadow-sm'"
+                            class="bg-white rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md transition"
+                            :class="selectedFileId === file.id ? 'ring-2 ring-primary-500' : ''"
+                            @click="selectFile(file)"
                         >
-                            <!-- File attachment -->
-                            <div x-show="msg.file" class="mb-2 p-2 rounded-lg" :class="msg.role === 'user' ? 'bg-primary-500' : 'bg-gray-100'">
-                                <div class="flex items-center">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="flex items-start gap-3">
+                                <div class="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                     </svg>
-                                    <span class="text-sm" x-text="msg.file"></span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-medium text-gray-900 truncate" x-text="file.filename"></p>
+                                    <p class="text-xs text-gray-500" x-show="file.analysis">Analizzato</p>
                                 </div>
                             </div>
-                            <!-- Message content -->
-                            <div class="markdown whitespace-pre-wrap" x-html="formatMessage(msg.content)"></div>
                         </div>
-                    </div>
-                </template>
+                    </template>
 
-                <!-- Loading indicator -->
-                <div x-show="loading" class="flex justify-start">
-                    <div class="bg-white shadow-sm rounded-2xl px-4 py-3">
-                        <div class="flex items-center space-x-2">
-                            <div class="spinner"></div>
-                            <span class="text-gray-600">L'AI sta elaborando...</span>
-                        </div>
+                    <div x-show="sessionFiles.length === 0" class="text-center py-8 text-gray-500">
+                        <p class="text-sm">Nessun disegno caricato</p>
+                        <p class="text-xs mt-1">Carica un file per iniziare l'analisi</p>
                     </div>
+                </div>
+
+                <!-- File Analysis Preview -->
+                <div x-show="selectedFile?.analysis" class="p-4 border-t bg-white max-h-48 overflow-y-auto">
+                    <h3 class="font-medium text-sm text-gray-700 mb-2">Analisi AI:</h3>
+                    <p class="text-sm text-gray-600 whitespace-pre-wrap" x-text="selectedFile?.analysis"></p>
                 </div>
             </div>
 
-            <!-- Input Area -->
-            <div class="bg-white border-t p-4">
-                <!-- File preview -->
-                <div x-show="selectedFile" class="mb-3 p-3 bg-gray-50 rounded-lg flex items-center justify-between">
-                    <div class="flex items-center">
-                        <svg class="w-5 h-5 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                        </svg>
-                        <span class="text-sm text-gray-700" x-text="selectedFile?.name"></span>
+            <!-- Right Panel: Chat -->
+            <div class="flex-1 flex flex-col" :class="currentSession ? 'w-2/3' : 'w-full'">
+                <!-- Chat Header -->
+                <div class="bg-white border-b px-6 py-4 flex items-center justify-between">
+                    <div>
+                        <h1 class="text-lg font-semibold text-gray-900" x-text="currentSession?.title || 'Chat AI'"></h1>
+                        <p class="text-sm text-gray-500">
+                            <span x-show="lastUsedKnowledge > 0" class="text-green-600">
+                                Usando <span x-text="lastUsedKnowledge"></span> conoscenze apprese
+                            </span>
+                            <span x-show="lastUsedExamples > 0" class="text-blue-600 ml-2">
+                                + <span x-text="lastUsedExamples"></span> esempi simili
+                            </span>
+                        </p>
                     </div>
-                    <button @click="selectedFile = null" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+
+                    <!-- Knowledge Learned Indicator -->
+                    <div x-show="lastLearnedItems.length > 0" x-transition class="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                         </svg>
-                    </button>
+                        <span>Appreso: <span x-text="lastLearnedItems.map(i => i.title).join(', ')"></span></span>
+                    </div>
                 </div>
 
-                <form @submit.prevent="sendMessage" class="flex items-end space-x-3">
-                    <!-- File upload button -->
-                    <label class="cursor-pointer p-3 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
-                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-                        </svg>
-                        <input
-                            type="file"
-                            @change="handleFileSelect"
-                            accept=".pdf,.png,.jpg,.jpeg"
-                            class="hidden"
-                        >
-                    </label>
-
-                    <!-- Message input -->
-                    <div class="flex-1">
-                        <textarea
-                            x-model="message"
-                            @keydown.enter.prevent="if(!$event.shiftKey) sendMessage()"
-                            placeholder="Scrivi un messaggio o carica un disegno..."
-                            rows="1"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-                            :disabled="loading"
-                        ></textarea>
+                <!-- Chat Messages -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-4" id="chatMessages">
+                    <!-- Welcome -->
+                    <div x-show="messages.length === 0" class="text-center py-12">
+                        <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-semibold text-gray-900 mb-2">Analista Tecnico AI</h2>
+                        <p class="text-gray-600 max-w-md mx-auto">
+                            Carica un disegno tecnico e parliamone. Piu mi correggi, piu divento preciso nelle stime.
+                        </p>
+                        <div class="mt-4 flex flex-wrap justify-center gap-2">
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Analisi disegni ISO/ASME</span>
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Preventivi CNC</span>
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Apprendimento continuo</span>
+                        </div>
                     </div>
 
-                    <!-- Send button -->
-                    <button
-                        type="submit"
-                        :disabled="loading || (!message.trim() && !selectedFile)"
-                        class="p-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                    >
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                        </svg>
-                    </button>
-                </form>
+                    <!-- Messages -->
+                    <template x-for="(msg, index) in messages" :key="index">
+                        <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                            <div
+                                class="max-w-3xl rounded-2xl px-4 py-3"
+                                :class="msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-white shadow-sm'"
+                            >
+                                <!-- File attachment -->
+                                <div x-show="msg.attached_file" class="mb-2 p-2 rounded-lg" :class="msg.role === 'user' ? 'bg-primary-500' : 'bg-gray-100'">
+                                    <div class="flex items-center text-sm">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                        </svg>
+                                        <span x-text="msg.attached_file?.filename || msg.attached_file"></span>
+                                    </div>
+                                </div>
+                                <!-- Content -->
+                                <div class="markdown whitespace-pre-wrap" x-html="formatMessage(msg.content)"></div>
+                            </div>
+                        </div>
+                    </template>
 
-                <!-- Quick actions for quote mode -->
-                <div x-show="showQuoteMode && selectedFile" class="mt-3">
-                    <button
-                        @click="generateQuote"
-                        :disabled="loading"
-                        class="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-semibold"
-                    >
-                        Genera Preventivo Completo
-                    </button>
+                    <!-- Loading -->
+                    <div x-show="loading" class="flex justify-start">
+                        <div class="bg-white shadow-sm rounded-2xl px-4 py-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="spinner"></div>
+                                <span class="text-gray-600">Analizzo...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="bg-white border-t p-4">
+                    <!-- Pending File -->
+                    <div x-show="pendingFile" class="mb-3 p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-primary-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="text-sm text-gray-700" x-text="pendingFile?.name"></span>
+                        </div>
+                        <button @click="pendingFile = null" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="sendMessage" class="flex items-end space-x-3">
+                        <!-- File upload -->
+                        <label class="cursor-pointer p-3 rounded-lg bg-gray-100 hover:bg-gray-200 transition">
+                            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                            </svg>
+                            <input type="file" @change="handleFileSelect" accept=".pdf,.png,.jpg,.jpeg" class="hidden">
+                        </label>
+
+                        <!-- Message input -->
+                        <div class="flex-1">
+                            <textarea
+                                x-model="message"
+                                @keydown.enter.prevent="if(!$event.shiftKey) sendMessage()"
+                                placeholder="Descrivi il pezzo, chiedi un preventivo, o correggi una stima..."
+                                rows="1"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                                :disabled="loading"
+                            ></textarea>
+                        </div>
+
+                        <!-- Send -->
+                        <button
+                            type="submit"
+                            :disabled="loading || (!message.trim() && !pendingFile)"
+                            class="p-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                            </svg>
+                        </button>
+                    </form>
                 </div>
             </div>
         </main>
@@ -192,139 +286,223 @@
 
 {% block scripts %}
 <script>
-    function chatPage() {
-        return {
-            messages: [],
-            message: '',
-            selectedFile: null,
-            loading: false,
-            showQuoteMode: true,
-            currentDrawingId: null,
+function chatPage() {
+    return {
+        // State
+        sessions: [],
+        currentSession: null,
+        sessionFiles: [],
+        selectedFileId: null,
+        selectedFile: null,
+        messages: [],
+        message: '',
+        pendingFile: null,
+        loading: false,
+        knowledgeStats: {},
+        lastUsedKnowledge: 0,
+        lastUsedExamples: 0,
+        lastLearnedItems: [],
 
-            formatMessage(content) {
-                // Basic markdown-like formatting
-                return content
-                    .replace(/## (.*)/g, '<h2>$1</h2>')
-                    .replace(/- (.*)/g, '<li>$1</li>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\n/g, '<br>');
-            },
+        // Init
+        async init() {
+            await this.loadSessions();
+            await this.loadActiveSession();
+            await this.loadKnowledgeStats();
+        },
 
-            handleFileSelect(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    this.selectedFile = file;
-                }
-            },
-
-            scrollToBottom() {
-                this.$nextTick(() => {
-                    const container = document.getElementById('chatMessages');
-                    container.scrollTop = container.scrollHeight;
-                });
-            },
-
-            async sendMessage() {
-                if (!this.message.trim() && !this.selectedFile) return;
-
-                const userMessage = this.message.trim() || 'Analizza questo disegno';
-                this.messages.push({
-                    role: 'user',
-                    content: userMessage,
-                    file: this.selectedFile?.name
-                });
-
-                const fileToSend = this.selectedFile;
-                this.message = '';
-                this.selectedFile = null;
-                this.loading = true;
-                this.scrollToBottom();
-
-                try {
-                    let response;
-
-                    if (fileToSend) {
-                        // Send with file
-                        const formData = new FormData();
-                        formData.append('file', fileToSend);
-                        formData.append('message', userMessage);
-
-                        response = await api.upload('/api/chat/send-with-file', formData);
-                        this.currentDrawingId = response.drawing_id;
-                    } else {
-                        // Send text only
-                        response = await api.post('/api/chat/send', {
-                            message: userMessage,
-                            drawing_id: this.currentDrawingId,
-                            history: this.messages.slice(-10).map(m => ({
-                                role: m.role,
-                                content: m.content
-                            }))
-                        });
-                    }
-
-                    this.messages.push({
-                        role: 'assistant',
-                        content: response.response
-                    });
-                } catch (err) {
-                    this.messages.push({
-                        role: 'assistant',
-                        content: 'Errore: ' + (err.message || 'Impossibile elaborare la richiesta')
-                    });
-                } finally {
-                    this.loading = false;
-                    this.scrollToBottom();
-                }
-            },
-
-            async generateQuote() {
-                if (!this.selectedFile) return;
-
-                const fileName = this.selectedFile.name;
-                this.messages.push({
-                    role: 'user',
-                    content: 'Genera un preventivo completo per questo disegno',
-                    file: fileName
-                });
-
-                const fileToSend = this.selectedFile;
-                this.selectedFile = null;
-                this.loading = true;
-                this.scrollToBottom();
-
-                try {
-                    const formData = new FormData();
-                    formData.append('file', fileToSend);
-                    formData.append('context', 'Richiesta preventivo completo');
-
-                    const response = await api.upload('/api/quotes/generate', formData);
-
-                    let quoteMessage = response.ai_response || '';
-                    if (response.estimated_cost) {
-                        quoteMessage += `\n\n**Costo Stimato: € ${response.estimated_cost.toFixed(2)}**`;
-                    }
-                    if (response.similar_examples_count > 0) {
-                        quoteMessage += `\n\n_Basato su ${response.similar_examples_count} esempi simili nel database._`;
-                    } else {
-                        quoteMessage += `\n\n_Nota: Non ci sono ancora esempi nel sistema. Questa è una stima generica. Aggiungi preventivi passati per migliorare la precisione._`;
-                    }
-
-                    this.messages.push({
-                        role: 'assistant',
-                        content: quoteMessage
-                    });
-                } catch (err) {
-                    this.messages.push({
-                        role: 'assistant',
-                        content: 'Errore nella generazione del preventivo: ' + (err.message || 'Errore sconosciuto')
-                    });
-                } finally {
-                    this.loading = false;
-                    this.scrollToBottom();
-                }
+        // Sessions
+        async loadSessions() {
+            try {
+                this.sessions = await api.get('/api/sessions/');
+            } catch (err) {
+                console.error('Error loading sessions:', err);
             }
+        },
+
+        async loadActiveSession() {
+            try {
+                const session = await api.get('/api/sessions/active');
+                if (session) {
+                    await this.loadSession(session.id);
+                }
+            } catch (err) {
+                console.error('Error loading active session:', err);
+            }
+        },
+
+        async loadSession(sessionId) {
+            try {
+                this.currentSession = await api.get(`/api/sessions/${sessionId}`);
+                this.sessionFiles = this.currentSession.files || [];
+                const msgs = await api.get(`/api/sessions/${sessionId}/messages`);
+                this.messages = msgs.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    attached_file: m.attached_file
+                }));
+                this.scrollToBottom();
+            } catch (err) {
+                console.error('Error loading session:', err);
+            }
+        },
+
+        async createNewSession() {
+            try {
+                const session = await api.post('/api/sessions/', { title: 'Nuova sessione' });
+                await this.loadSessions();
+                await this.loadSession(session.id);
+                this.messages = [];
+                this.sessionFiles = [];
+            } catch (err) {
+                console.error('Error creating session:', err);
+            }
+        },
+
+        async archiveSession(sessionId) {
+            if (!confirm('Archiviare questa sessione?')) return;
+            try {
+                await api.put(`/api/sessions/${sessionId}`, { is_archived: true });
+                await this.loadSessions();
+                if (this.currentSession?.id === sessionId) {
+                    await this.loadActiveSession();
+                }
+            } catch (err) {
+                console.error('Error archiving session:', err);
+            }
+        },
+
+        // Knowledge
+        async loadKnowledgeStats() {
+            try {
+                this.knowledgeStats = await api.get('/api/sessions/knowledge/stats');
+            } catch (err) {
+                console.error('Error loading knowledge stats:', err);
+            }
+        },
+
+        // Files
+        async uploadFile(event) {
+            const file = event.target.files[0];
+            if (!file || !this.currentSession) return;
+
+            try {
+                this.loading = true;
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const result = await api.upload(`/api/sessions/${this.currentSession.id}/files`, formData);
+                this.sessionFiles.push(result);
+                this.selectFile(result);
+
+                // Aggiorna la sessione
+                await this.loadSession(this.currentSession.id);
+            } catch (err) {
+                alert('Errore caricamento: ' + err.message);
+            } finally {
+                this.loading = false;
+                event.target.value = '';
+            }
+        },
+
+        selectFile(file) {
+            this.selectedFileId = file.id;
+            this.selectedFile = file;
+        },
+
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                this.pendingFile = file;
+            }
+        },
+
+        // Messages
+        async sendMessage() {
+            if (!this.message.trim() && !this.pendingFile) return;
+            if (!this.currentSession) {
+                await this.createNewSession();
+            }
+
+            const userContent = this.message.trim() || 'Analizza questo disegno';
+            const fileToSend = this.pendingFile;
+
+            this.messages.push({
+                role: 'user',
+                content: userContent,
+                attached_file: fileToSend?.name
+            });
+
+            this.message = '';
+            this.pendingFile = null;
+            this.loading = true;
+            this.lastLearnedItems = [];
+            this.scrollToBottom();
+
+            try {
+                const formData = new FormData();
+                formData.append('content', userContent);
+                if (fileToSend) {
+                    formData.append('file', fileToSend);
+                }
+
+                const response = await api.upload(
+                    `/api/sessions/${this.currentSession.id}/messages`,
+                    formData
+                );
+
+                this.messages.push({
+                    role: 'assistant',
+                    content: response.assistant_message.content
+                });
+
+                // Update context indicators
+                this.lastUsedKnowledge = response.used_knowledge || 0;
+                this.lastUsedExamples = response.used_examples || 0;
+
+                // Show learned items
+                if (response.knowledge_learned && response.knowledge_learned.length > 0) {
+                    this.lastLearnedItems = response.knowledge_learned;
+                    await this.loadKnowledgeStats();
+
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        this.lastLearnedItems = [];
+                    }, 5000);
+                }
+
+                // Refresh session files if new file was uploaded
+                if (fileToSend) {
+                    await this.loadSession(this.currentSession.id);
+                }
+
+            } catch (err) {
+                this.messages.push({
+                    role: 'assistant',
+                    content: 'Errore: ' + (err.message || 'Impossibile elaborare la richiesta')
+                });
+            } finally {
+                this.loading = false;
+                this.scrollToBottom();
+            }
+        },
+
+        formatMessage(content) {
+            return content
+                .replace(/## (.*)/g, '<h3 class="font-semibold mt-2">$1</h3>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/- (.*)/g, '<li class="ml-4">$1</li>')
+                .replace(/\n/g, '<br>');
+        },
+
+        scrollToBottom() {
+            this.$nextTick(() => {
+                const container = document.getElementById('chatMessages');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
         }
     }
+}
 </script>
 {% endblock %}

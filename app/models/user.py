@@ -25,6 +25,8 @@ class User(Base):
     drawings = relationship("Drawing", back_populates="user")
     quotes = relationship("Quote", back_populates="user")
     learning_examples = relationship("LearningExample", back_populates="created_by")
+    chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
+    knowledge_items = relationship("KnowledgeItem", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User {self.username}>"
