@@ -432,52 +432,115 @@ async def send_message(
     session.message_count = (session.message_count or 0) + 2
     session.last_message_at = datetime.utcnow()
 
-    # ===== ESTRAZIONE AUTOMATICA CONOSCENZA =====
+    # ===== ESTRAZIONE CONOSCENZA DAI TAG [RICORDA: ...] =====
     knowledge_learned = []
     try:
-        # Prendi ultimi 4 messaggi per analisi
-        recent_messages = [
-            {"role": m.role, "content": m.content}
-            for m in history_msgs[-3:]
-        ] + [
-            {"role": "user", "content": content},
-            {"role": "assistant", "content": result["response"]}
-        ]
+        import re
+        from decimal import Decimal
+        from models.knowledge import KnowledgeItem
 
-        # Estrai conoscenza
-        has_learned, items, summary = await extractor.process_chat_exchange(
-            db=db,
-            user_id=current_user.id,
-            messages=recent_messages,
-            session_id=session_id,
-            message_id=user_msg.id,
-            file_id=file_record.id if file_record else None
-        )
+        ai_response = result["response"]
+        logger.info(f"=== Parsing [RICORDA: ...] tags from AI response ===")
 
-        if has_learned:
-            user_msg.contains_correction = True
+        # Pattern: [RICORDA: tipo | titolo | descrizione]
+        pattern = r'\[RICORDA:\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^\]]+)\]'
+        matches = re.findall(pattern, ai_response, re.IGNORECASE)
+
+        logger.info(f"Found {len(matches)} [RICORDA: ...] tags")
+
+        new_items_count = 0
+        for match in matches:
+            knowledge_type = match[0].strip().lower()
+            title = match[1].strip()
+            content = match[2].strip()
+            embedding_text = f"[{knowledge_type.upper()}] {title}\n{content}"
+            is_update = False
+
+            # Cerca se esiste già una conoscenza con titolo simile (aggiornamento)
+            existing = db.query(KnowledgeItem).filter(
+                KnowledgeItem.user_id == current_user.id,
+                KnowledgeItem.title.ilike(f"%{title[:30]}%")  # Cerca titoli simili
+            ).first()
+
+            if existing:
+                logger.info(f"  → Updating existing: [{knowledge_type}] {title}")
+                existing.knowledge_type = knowledge_type
+                existing.content = content
+                existing.embedding_text = embedding_text
+                existing.source_session_id = session_id
+                existing.source_message_id = assistant_msg.id
+                knowledge = existing
+                is_update = True
+
+                # Aggiorna vector store
+                if existing.chroma_id:
+                    try:
+                        chromadb.delete_knowledge_item(existing.chroma_id)
+                    except:
+                        pass
+            else:
+                logger.info(f"  → Saving new: [{knowledge_type}] {title}")
+                new_items_count += 1
+
+                # Salva nel database
+                knowledge = KnowledgeItem(
+                    user_id=current_user.id,
+                    knowledge_type=knowledge_type,
+                    title=title[:255],
+                    content=content,
+                    embedding_text=embedding_text,
+                    source_session_id=session_id,
+                    source_message_id=assistant_msg.id,
+                    related_file_id=file_record.id if file_record else None,
+                    confidence=Decimal("0.95")
+                )
+                db.add(knowledge)
+
+            db.flush()
+
+            # Salva anche nel vector store per ricerca semantica
+            try:
+                chroma_id = chromadb.add_knowledge_item(
+                    knowledge_id=knowledge.id,
+                    user_id=current_user.id,
+                    embedding_text=embedding_text,
+                    knowledge_type=knowledge_type,
+                    metadata={"title": title}
+                )
+                knowledge.chroma_id = chroma_id
+            except Exception as e:
+                logger.warning(f"Failed to add to ChromaDB: {e}")
+
+            knowledge_learned.append({
+                "id": knowledge.id,
+                "type": knowledge_type,
+                "title": title,
+                "content": content[:200],
+                "updated": is_update
+            })
+
+        if knowledge_learned:
+            # Incrementa contatore solo per nuovi elementi
+            if new_items_count > 0:
+                session.knowledge_extracted = (session.knowledge_extracted or 0) + new_items_count
             user_msg.knowledge_extracted = True
-            user_msg.extracted_knowledge_ids = [k.id for k in items]
-            session.knowledge_extracted = (session.knowledge_extracted or 0) + len(items)
+            logger.info(f"✅ Saved {len(knowledge_learned)} knowledge items from AI tags")
 
-            knowledge_learned = [
-                {
-                    "id": k.id,
-                    "type": k.knowledge_type,
-                    "title": k.title,
-                    "content": k.content[:200]
-                }
-                for k in items
-            ]
-
-            logger.info(f"Extracted {len(items)} knowledge items from session {session_id}")
+            # Rimuovi i tag [RICORDA: ...] dalla risposta mostrata all'utente
+            clean_response = re.sub(pattern, '', ai_response, flags=re.IGNORECASE)
+            # Rimuovi righe vuote multiple e spazi extra
+            clean_response = re.sub(r'\n\s*\n\s*\n', '\n\n', clean_response)  # Max 2 newlines
+            clean_response = clean_response.strip()
+            assistant_msg.content = clean_response
+        else:
+            logger.info(f"No [RICORDA: ...] tags found in AI response")
 
     except Exception as e:
-        logger.error(f"Error in knowledge extraction: {e}")
+        logger.error(f"❌ Error parsing knowledge tags: {e}", exc_info=True)
 
     db.commit()
 
-    # Prepara risposta
+    # Prepara risposta (usa assistant_msg.content che è già pulito dai tag [RICORDA])
     return ChatExchangeResponse(
         user_message=MessageResponse(
             id=user_msg.id,
@@ -492,7 +555,7 @@ async def send_message(
         assistant_message=MessageResponse(
             id=assistant_msg.id,
             role="assistant",
-            content=result["response"],
+            content=assistant_msg.content,  # Pulito dai tag [RICORDA: ...]
             created_at=assistant_msg.created_at
         ),
         knowledge_learned=knowledge_learned,
@@ -691,3 +754,66 @@ async def delete_knowledge(
     db.commit()
 
     return {"message": "Conoscenza eliminata"}
+
+
+class KnowledgeUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    knowledge_type: Optional[str] = None
+
+
+@router.put("/knowledge/{knowledge_id}")
+async def update_knowledge(
+    knowledge_id: int,
+    update: KnowledgeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    chromadb: ChromaDBService = Depends(get_chromadb_service)
+):
+    """Modifica una conoscenza esistente"""
+    item = db.query(KnowledgeItem).filter(
+        KnowledgeItem.id == knowledge_id,
+        KnowledgeItem.user_id == current_user.id
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Conoscenza non trovata")
+
+    # Aggiorna i campi
+    if update.title:
+        item.title = update.title[:255]
+    if update.content:
+        item.content = update.content
+    if update.knowledge_type:
+        item.knowledge_type = update.knowledge_type
+
+    # Aggiorna embedding text
+    item.embedding_text = f"[{item.knowledge_type.upper()}] {item.title}\n{item.content}"
+
+    # Aggiorna nel vector store (elimina e ricrea)
+    if item.chroma_id:
+        try:
+            chromadb.delete_knowledge_item(item.chroma_id)
+        except:
+            pass
+
+    try:
+        new_chroma_id = chromadb.add_knowledge_item(
+            knowledge_id=item.id,
+            user_id=current_user.id,
+            embedding_text=item.embedding_text,
+            knowledge_type=item.knowledge_type,
+            metadata={"title": item.title}
+        )
+        item.chroma_id = new_chroma_id
+    except Exception as e:
+        logger.warning(f"Failed to update ChromaDB: {e}")
+
+    db.commit()
+
+    return {
+        "id": item.id,
+        "type": item.knowledge_type,
+        "title": item.title,
+        "content": item.content
+    }

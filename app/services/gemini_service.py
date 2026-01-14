@@ -1,11 +1,6 @@
 """
 Gemini Service - AI Vision per analisi disegni e generazione preventivi
-Usa Google Gemini 1.5 Pro per "vedere" i disegni tecnici come fa ChatGPT
-
-L'AI si comporta come un "Analista Tecnico Senior" esperto di:
-- Lettura disegni meccanici (ISO/ASME)
-- Lavorazioni CNC (tornitura, fresatura, foratura, etc.)
-- Preventivazione basata su esperienza
+Sistema generico per qualsiasi tipo di lavorazione industriale
 """
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -17,45 +12,34 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-# System prompt per l'Analista Tecnico Senior
-SYSTEM_PROMPT = """Sei l'Analista Tecnico Senior di GenPreventiva, esperto in:
-- Lettura disegni meccanici secondo normative ISO e ASME
-- Lavorazioni CNC: tornitura, fresatura, foratura, rettifica, EDM
-- Materiali: acciai, alluminio, ottone, plastica tecnica, titanio
-- Preventivazione precisa basata su esperienza reale
+# System prompt GENERICO per l'Analista Tecnico
+SYSTEM_PROMPT = """Sei l'Analista Tecnico Senior di GenPreventiva, esperto in lettura disegni tecnici.
 
-IL TUO OBIETTIVO è la PRECISIONE ASSOLUTA. Per raggiungere questo obiettivo:
+Devi imparare a fare i preventivi apprendendo dall'utente: macchinari, materiali, lavorazioni, costi, tempi.
 
-1. ANALIZZA i disegni con attenzione metodica:
-   - Dimensioni e tolleranze
-   - Materiale e trattamenti
-   - Complessità geometrica
-   - Numero di setup necessari
+COME SALVARE IN MEMORIA:
+Quando l'utente ti dice un'informazione importante (costo, tempo, macchina, materiale, processo),
+DEVI salvarla usando questo formato alla fine della tua risposta:
 
-2. USA LA CONOSCENZA AZIENDALE che ti viene fornita:
-   - Costi orari specifici dei macchinari dell'officina
-   - Tempi reali di lavorazioni passate
-   - Preferenze su materiali e fornitori
-   - Correzioni fatte dall'utente in passato
+[RICORDA: tipo | titolo | descrizione]
 
-3. IMPARA CONTINUAMENTE dalle correzioni:
-   - Quando l'utente ti corregge, il sistema memorizza
-   - Nelle prossime stime userai questa esperienza
-   - Più lavori insieme, più diventi preciso
+Esempi:
+- Utente dice "il laser costa 80€/ora" → [RICORDA: costo | Costo orario laser | Il laser aziendale costa 80€/ora]
+- Utente dice "usiamo acciaio inox 304" → [RICORDA: materiale | Acciaio standard | L'azienda usa principalmente acciaio inox 304]
+- Utente dice "no, ci vogliono 3 ore non 2" → [RICORDA: tempo | Correzione tempo | Per questo tipo di pezzo servono 3 ore, non 2]
+- Utente dice "abbiamo una pressa da 100 ton" → [RICORDA: macchina | Pressa 100 ton | L'azienda ha una pressa piegatrice da 100 tonnellate]
 
-4. RISPONDI in modo STRUTTURATO:
-   - Lista operazioni in ordine
-   - Tempi per operazione
-   - Macchinario consigliato per ogni step
-   - Costi dettagliati
+TIPI validi: costo, tempo, macchina, materiale, processo, correzione, generale
 
 REGOLE:
-- Mai inventare dati: se non hai informazioni, chiedi
-- Preferisci la conoscenza aziendale ai valori generici
-- Sii conciso ma completo
-- Indica sempre il livello di confidenza delle stime
+- Quando l'utente ti dà un'informazione nuova, SEMPRE usa [RICORDA: ...] per salvarla
+- Puoi usare più [RICORDA: ...] nella stessa risposta se ci sono più informazioni
+- Se l'utente aggiorna un costo/tempo esistente, usa [RICORDA] con lo stesso titolo - il sistema aggiornerà automaticamente
+- Se carichi un disegno, analizzalo e chiedi che lavorazione vuole fare
+- Usa la conoscenza aziendale mostrata sopra come riferimento
+- Se non sai un costo o tempo, chiedi - non inventare
 
-Rispondi sempre in italiano."""
+Rispondi in italiano."""
 
 
 class GeminiService:
@@ -129,21 +113,20 @@ class GeminiService:
         model = self._get_model()
         file_part = self._load_file_as_part(file_path)
 
-        prompt = """Analizza questo disegno tecnico CNC e estrai le seguenti informazioni in modo strutturato:
+        prompt = """Analizza questo disegno tecnico e estrai le seguenti informazioni in modo strutturato:
 
 1. DESCRIZIONE: Descrivi brevemente cosa rappresenta il disegno (tipo di pezzo, forma generale)
 
-2. DIMENSIONI: Se visibili, indica le dimensioni principali (lunghezza, larghezza, altezza, diametri)
+2. DIMENSIONI: Se visibili, indica le dimensioni principali (lunghezza, larghezza, altezza, diametri, spessori)
 
 3. CARATTERISTICHE:
-   - Tipo di lavorazione probabile (tornitura, fresatura, foratura, etc.)
    - Complessità stimata (bassa, media, alta)
    - Presenza di tolleranze strette
-   - Numero di operazioni/setup stimati
+   - Dettagli particolari (fori, filetti, pieghe, saldature, etc.)
 
-4. MATERIALE: Se indicato nel disegno, altrimenti suggerisci materiali tipici
+4. MATERIALE: Se indicato nel disegno, altrimenti indica "da chiedere all'utente"
 
-5. MACCHINA: Tipo di macchina CNC più adatta (tornio, fresatrice 3 assi, 5 assi, etc.)
+5. POSSIBILI LAVORAZIONI: Elenca i tipi di lavorazione possibili per realizzare questo pezzo (CNC, taglio laser, piegatura, stampa 3D, saldatura, ecc.) - NON scegliere tu, elenca le opzioni
 
 Rispondi in italiano in formato strutturato."""
 
@@ -206,7 +189,7 @@ Ore lavoro: {metadata.get('working_time_hours', 'N/D')}
 
         user_context_str = f"\n\nCONTESTO UTENTE: {user_context}" if user_context else ""
 
-        prompt = f"""Sei un esperto di lavorazioni CNC. Devi generare un preventivo per il disegno tecnico allegato.
+        prompt = f"""Sei un esperto di lavorazioni industriali. Devi generare un preventivo per il disegno tecnico allegato.
 
 {examples_context}
 {user_context_str}
@@ -216,16 +199,16 @@ Analizza il disegno allegato e, basandoti sugli esempi di riferimento forniti, g
 IMPORTANTE:
 - Se ci sono esempi simili, usa i loro costi come riferimento principale
 - Considera le differenze di complessità tra il nuovo disegno e gli esempi
-- Se non ci sono esempi, fornisci una stima generica indicando che è approssimativa
+- Se non ci sono esempi, CHIEDI all'utente che tipo di lavorazione vuole fare
 
 Rispondi in questo formato:
 
 ## ANALISI DISEGNO
 [Descrizione del pezzo e caratteristiche principali]
 
-## LAVORAZIONE CONSIGLIATA
-- Macchina: [tipo]
-- Materiale suggerito: [materiale]
+## LAVORAZIONE
+- Tipo: [CNC/Laser/Stampa 3D/Lamiera/etc. - se non specificato, chiedi]
+- Materiale: [materiale - se non specificato, chiedi]
 - Operazioni: [lista operazioni]
 - Complessità: [bassa/media/alta]
 
@@ -234,10 +217,10 @@ Rispondi in questo formato:
 - Costo stimato: [€ XXX.XX]
 
 ## RAGIONAMENTO
-[Spiega come sei arrivato a questa stima, citando gli esempi di riferimento se disponibili]
+[Spiega come sei arrivato a questa stima]
 
 ## NOTE
-[Eventuali osservazioni o incertezze]
+[Eventuali domande o informazioni mancanti]
 """
 
         try:
@@ -348,14 +331,26 @@ Rispondi in questo formato:
 
         try:
             response = await model.generate_content_async(parts)
+
+            # Check if response was truncated
+            finish_reason = None
+            if response.candidates and len(response.candidates) > 0:
+                finish_reason = response.candidates[0].finish_reason
+                if finish_reason and str(finish_reason) not in ["STOP", "1", "FinishReason.STOP"]:
+                    logger.warning(f"⚠️ Response may be truncated. Finish reason: {finish_reason}")
+
+            response_text = response.text
+            logger.debug(f"Response length: {len(response_text)} chars, finish_reason: {finish_reason}")
+
             return {
                 "success": True,
-                "response": response.text,
+                "response": response_text,
                 "used_knowledge": len(knowledge_context) if knowledge_context else 0,
-                "used_examples": len(examples_context) if examples_context else 0
+                "used_examples": len(examples_context) if examples_context else 0,
+                "finish_reason": str(finish_reason) if finish_reason else None
             }
         except Exception as e:
-            logger.error(f"Chat error: {e}")
+            logger.error(f"Chat error: {e}", exc_info=True)
             return {
                 "success": False,
                 "error": str(e)
