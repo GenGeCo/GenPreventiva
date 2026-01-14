@@ -94,7 +94,7 @@ class KnowledgeExtractor:
         if self._model is None:
             self._configure()
             self._model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",  # Usiamo flash per estrazione rapida
+                model_name="gemini-2.5-flash",  # Usiamo flash per estrazione rapida
                 generation_config={
                     "temperature": 0.1,  # Bassa per output consistente
                     "top_p": 0.95,

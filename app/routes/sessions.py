@@ -626,3 +626,68 @@ async def get_knowledge_stats(
             for k in recent
         ]
     }
+
+
+@router.get("/knowledge/list")
+async def list_knowledge(
+    skip: int = 0,
+    limit: int = 50,
+    knowledge_type: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Lista completa delle conoscenze apprese dall'utente"""
+    query = db.query(KnowledgeItem).filter(
+        KnowledgeItem.user_id == current_user.id
+    )
+
+    if knowledge_type:
+        query = query.filter(KnowledgeItem.knowledge_type == knowledge_type)
+
+    total = query.count()
+    items = query.order_by(desc(KnowledgeItem.created_at)).offset(skip).limit(limit).all()
+
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": k.id,
+                "type": k.knowledge_type,
+                "title": k.title,
+                "content": k.content,
+                "confidence": float(k.confidence) if k.confidence else 0.8,
+                "extra_data": k.extra_data,
+                "created_at": k.created_at.isoformat()
+            }
+            for k in items
+        ]
+    }
+
+
+@router.delete("/knowledge/{knowledge_id}")
+async def delete_knowledge(
+    knowledge_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    chromadb: ChromaDBService = Depends(get_chromadb_service)
+):
+    """Elimina una conoscenza specifica"""
+    item = db.query(KnowledgeItem).filter(
+        KnowledgeItem.id == knowledge_id,
+        KnowledgeItem.user_id == current_user.id
+    ).first()
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Conoscenza non trovata")
+
+    # Rimuovi da ChromaDB se presente
+    if item.chroma_id:
+        try:
+            chromadb.delete_knowledge_item(item.chroma_id)
+        except:
+            pass
+
+    db.delete(item)
+    db.commit()
+
+    return {"message": "Conoscenza eliminata"}

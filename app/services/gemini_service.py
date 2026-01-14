@@ -87,7 +87,7 @@ class GeminiService:
                     "temperature": 0.3,  # Bassa per risposte più precise sui costi
                     "top_p": 0.95,
                     "top_k": 40,
-                    "max_output_tokens": 4096,
+                    "max_output_tokens": 8192,  # Aumentato per risposte complete
                 }
             )
         return self._model
