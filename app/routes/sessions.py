@@ -116,15 +116,24 @@ async def create_session(
 async def list_sessions(
     skip: int = 0,
     limit: int = 20,
+    search: Optional[str] = None,
     include_archived: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Lista le sessioni dell'utente"""
+    """Lista le sessioni dell'utente con ricerca opzionale"""
     query = db.query(ChatSession).filter(ChatSession.user_id == current_user.id)
 
     if not include_archived:
         query = query.filter(ChatSession.is_archived == False)
+
+    # Ricerca per titolo o descrizione
+    if search:
+        search_filter = f"%{search}%"
+        query = query.filter(
+            (ChatSession.title.ilike(search_filter)) |
+            (ChatSession.description.ilike(search_filter))
+        )
 
     sessions = query.order_by(desc(ChatSession.updated_at)).offset(skip).limit(limit).all()
 
@@ -178,6 +187,84 @@ async def get_active_session(
         is_active=session.is_active,
         message_count=session.message_count,
         knowledge_extracted=session.knowledge_extracted,
+        created_at=session.created_at,
+        last_message_at=session.last_message_at,
+        files=[{
+            "id": f.id,
+            "filename": f.original_filename,
+            "created_at": f.created_at.isoformat()
+        } for f in session.files]
+    )
+
+
+@router.post("/new", response_model=SessionResponse)
+async def create_new_session(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Crea una nuova sessione (disattiva quella corrente)"""
+    # Disattiva tutte le sessioni attive dell'utente
+    db.query(ChatSession).filter(
+        ChatSession.user_id == current_user.id,
+        ChatSession.is_active == True
+    ).update({"is_active": False})
+
+    # Crea nuova sessione
+    session = ChatSession(
+        user_id=current_user.id,
+        title="Nuova sessione",
+        is_active=True
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    return SessionResponse(
+        id=session.id,
+        title=session.title,
+        description=session.description,
+        is_active=session.is_active,
+        message_count=session.message_count or 0,
+        knowledge_extracted=session.knowledge_extracted or 0,
+        created_at=session.created_at,
+        last_message_at=session.last_message_at,
+        files=[]
+    )
+
+
+@router.put("/{session_id}/activate", response_model=SessionResponse)
+async def activate_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Attiva una sessione specifica (per caricarla nella chat)"""
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Sessione non trovata")
+
+    # Disattiva tutte le altre sessioni
+    db.query(ChatSession).filter(
+        ChatSession.user_id == current_user.id,
+        ChatSession.is_active == True
+    ).update({"is_active": False})
+
+    # Attiva questa sessione
+    session.is_active = True
+    db.commit()
+    db.refresh(session)
+
+    return SessionResponse(
+        id=session.id,
+        title=session.title,
+        description=session.description,
+        is_active=session.is_active,
+        message_count=session.message_count or 0,
+        knowledge_extracted=session.knowledge_extracted or 0,
         created_at=session.created_at,
         last_message_at=session.last_message_at,
         files=[{
@@ -724,6 +811,68 @@ async def list_knowledge(
             }
             for k in items
         ]
+    }
+
+
+class KnowledgeCreate(BaseModel):
+    title: str
+    content: str
+    knowledge_type: str = "generale"
+
+
+@router.post("/knowledge/create")
+async def create_knowledge(
+    data: KnowledgeCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    chromadb: ChromaDBService = Depends(get_chromadb_service)
+):
+    """Crea una nuova conoscenza manualmente"""
+    from decimal import Decimal
+
+    # Valida il tipo
+    valid_types = ["costo", "tempo", "macchina", "materiale", "processo", "correzione", "generale"]
+    knowledge_type = data.knowledge_type.lower()
+    if knowledge_type not in valid_types:
+        knowledge_type = "generale"
+
+    embedding_text = f"[{knowledge_type.upper()}] {data.title}\n{data.content}"
+
+    # Crea nel database
+    knowledge = KnowledgeItem(
+        user_id=current_user.id,
+        knowledge_type=knowledge_type,
+        title=data.title[:255],
+        content=data.content,
+        embedding_text=embedding_text,
+        confidence=Decimal("1.0"),  # Massima confidenza per inserimento manuale
+        source_session_id=None,
+        source_message_id=None
+    )
+    db.add(knowledge)
+    db.flush()
+
+    # Salva nel vector store
+    try:
+        chroma_id = chromadb.add_knowledge_item(
+            knowledge_id=knowledge.id,
+            user_id=current_user.id,
+            embedding_text=embedding_text,
+            knowledge_type=knowledge_type,
+            metadata={"title": data.title, "manual": True}
+        )
+        knowledge.chroma_id = chroma_id
+    except Exception as e:
+        logger.warning(f"Failed to add to ChromaDB: {e}")
+
+    db.commit()
+
+    return {
+        "id": knowledge.id,
+        "type": knowledge.knowledge_type,
+        "title": knowledge.title,
+        "content": knowledge.content,
+        "created_at": knowledge.created_at.isoformat()
     }
 
 

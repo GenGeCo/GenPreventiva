@@ -6,35 +6,82 @@
 <div class="min-h-screen bg-gray-50" x-data="chatApp()">
     <div class="flex h-screen">
 
-        <!-- Sidebar Minimalista -->
-        <aside class="w-16 bg-gray-900 flex flex-col items-center py-4">
-            <!-- Logo -->
-            <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center mb-6">
-                <span class="text-white font-bold text-lg">G</span>
+        <!-- Sidebar con Storico Sessioni -->
+        <aside class="w-64 bg-gray-900 flex flex-col">
+            <!-- Header Sidebar -->
+            <div class="p-4 border-b border-gray-700">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                            <span class="text-white font-bold text-sm">G</span>
+                        </div>
+                        <span class="text-white font-semibold">GenPreventiva</span>
+                    </div>
+                </div>
+
+                <!-- Nuova Chat -->
+                <button @click="newChat()" class="w-full py-2 px-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center justify-center gap-2 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span class="text-sm">Nuova Chat</span>
+                </button>
             </div>
 
-            <!-- Nuova Chat -->
-            <button @click="newChat()" class="w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center mb-4 transition" title="Nuova chat">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-            </button>
-
-            <!-- Stats Apprendimento (clickable) -->
-            <div class="flex-1"></div>
-            <button @click="showKnowledgeModal()" class="mb-4 text-center group" title="Clicca per vedere le conoscenze apprese">
-                <div class="w-10 h-10 bg-green-600/20 group-hover:bg-green-600/40 rounded-lg flex items-center justify-center transition cursor-pointer">
-                    <span class="text-green-400 font-bold text-sm" x-text="knowledgeCount">0</span>
+            <!-- Cerca Sessioni -->
+            <div class="p-3 border-b border-gray-700">
+                <div class="relative">
+                    <input
+                        type="text"
+                        x-model="sessionSearch"
+                        @input.debounce.300ms="loadSessions()"
+                        placeholder="Cerca preventivi..."
+                        class="w-full px-3 py-2 pl-9 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    >
+                    <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
                 </div>
-                <span class="text-gray-500 text-xs mt-1 block">apprese</span>
-            </button>
+            </div>
 
-            <!-- Logout -->
-            <button @click="logout()" class="w-10 h-10 hover:bg-gray-700 rounded-lg flex items-center justify-center transition" title="Esci">
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-            </button>
+            <!-- Lista Sessioni -->
+            <div class="flex-1 overflow-y-auto p-2">
+                <template x-for="sess in sessions" :key="sess.id">
+                    <button
+                        @click="loadSession(sess.id)"
+                        class="w-full text-left p-3 rounded-lg mb-1 transition"
+                        :class="sess.id === sessionId ? 'bg-gray-700' : 'hover:bg-gray-800'"
+                    >
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-white truncate" x-text="sess.title || 'Nuova sessione'"></p>
+                                <p class="text-xs text-gray-500 mt-1" x-text="formatDate(sess.created_at)"></p>
+                            </div>
+                            <span x-show="sess.message_count > 0" class="text-xs text-gray-600 ml-2" x-text="sess.message_count + ' msg'"></span>
+                        </div>
+                    </button>
+                </template>
+                <p x-show="sessions.length === 0" class="text-center text-gray-500 text-sm py-4">Nessun preventivo</p>
+            </div>
+
+            <!-- Footer Sidebar -->
+            <div class="p-3 border-t border-gray-700">
+                <!-- Stats Apprendimento -->
+                <button @click="showKnowledgeModal()" class="w-full p-2 hover:bg-gray-800 rounded-lg flex items-center gap-3 transition mb-2">
+                    <div class="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
+                        <span class="text-green-400 font-bold text-xs" x-text="knowledgeCount">0</span>
+                    </div>
+                    <span class="text-gray-400 text-sm">Conoscenze apprese</span>
+                </button>
+
+                <!-- Logout -->
+                <button @click="logout()" class="w-full p-2 hover:bg-gray-800 rounded-lg flex items-center gap-3 transition">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span class="text-gray-400 text-sm">Esci</span>
+                </button>
+            </div>
         </aside>
 
         <!-- Main Content -->
@@ -219,16 +266,54 @@
                         <h2 class="text-xl font-bold text-gray-900">Conoscenze Apprese</h2>
                         <p class="text-sm text-gray-500">L'AI ha imparato queste informazioni dalle tue correzioni</p>
                     </div>
-                    <button @click="knowledgeModalOpen = false" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button @click="showAddKnowledgeForm = !showAddKnowledgeForm" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Aggiungi
+                        </button>
+                        <button @click="knowledgeModalOpen = false" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="p-6 overflow-y-auto max-h-[60vh]">
+                    <!-- Add Knowledge Form -->
+                    <div x-show="showAddKnowledgeForm" x-transition class="bg-primary-50 rounded-xl p-4 mb-4 border border-primary-200">
+                        <h3 class="font-medium text-gray-900 mb-3">Aggiungi nuova conoscenza</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                                <select x-model="newKnowledge.type" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                    <option value="costo">Costo</option>
+                                    <option value="tempo">Tempo</option>
+                                    <option value="macchina">Macchina</option>
+                                    <option value="materiale">Materiale</option>
+                                    <option value="processo">Processo</option>
+                                    <option value="generale">Generale</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Titolo</label>
+                                <input type="text" x-model="newKnowledge.title" placeholder="es. Costo orario laser" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Contenuto</label>
+                                <textarea x-model="newKnowledge.content" rows="2" placeholder="es. Il laser costa 80€/ora" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                            </div>
+                            <div class="flex gap-2 justify-end">
+                                <button @click="showAddKnowledgeForm = false; resetNewKnowledge()" class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Annulla</button>
+                                <button @click="addKnowledge()" class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">Salva</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Empty State -->
-                    <div x-show="knowledgeItems.length === 0" class="text-center py-12">
+                    <div x-show="knowledgeItems.length === 0 && !showAddKnowledgeForm" class="text-center py-12">
                         <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
                         </svg>
@@ -319,12 +404,21 @@ function chatApp() {
         knowledgeItems: [],
         editingId: null,
         editForm: { type: '', title: '', content: '' },
+        // Sessioni
+        sessions: [],
+        sessionSearch: '',
+        // Aggiungi conoscenza
+        showAddKnowledgeForm: false,
+        newKnowledge: { type: 'costo', title: '', content: '' },
 
         async init() {
-            // Carica o crea sessione
+            // Carica sessioni
+            await this.loadSessions();
+            // Carica o crea sessione attiva
             try {
                 const session = await api.get('/api/sessions/active');
                 this.sessionId = session.id;
+                this.knowledgeCount = session.knowledge_extracted || 0;
                 // Carica messaggi esistenti
                 const msgs = await api.get(`/api/sessions/${session.id}/messages`);
                 this.messages = msgs.map(m => ({
@@ -343,13 +437,59 @@ function chatApp() {
 
         async newChat() {
             try {
-                const session = await api.post('/api/sessions/', { title: 'Chat ' + new Date().toLocaleDateString('it') });
+                const session = await api.post('/api/sessions/new');
                 this.sessionId = session.id;
                 this.messages = [];
                 this.setCurrentFile(null);
+                await this.loadSessions();
             } catch (e) {
                 console.error(e);
             }
+        },
+
+        async loadSessions() {
+            try {
+                const url = this.sessionSearch
+                    ? `/api/sessions/?search=${encodeURIComponent(this.sessionSearch)}`
+                    : '/api/sessions/';
+                this.sessions = await api.get(url);
+            } catch (e) {
+                console.error('Error loading sessions:', e);
+            }
+        },
+
+        async loadSession(id) {
+            if (id === this.sessionId) return;
+            try {
+                // Attiva la sessione
+                const session = await api.put(`/api/sessions/${id}/activate`);
+                this.sessionId = session.id;
+                this.knowledgeCount = session.knowledge_extracted || 0;
+                // Carica messaggi
+                const msgs = await api.get(`/api/sessions/${id}/messages`);
+                this.messages = msgs.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    file: m.attached_file?.filename
+                }));
+                this.setCurrentFile(null);
+                await this.loadSessions();
+                this.scrollDown();
+            } catch (e) {
+                console.error('Error loading session:', e);
+            }
+        },
+
+        formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const now = new Date();
+            const diff = now - d;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            if (days === 0) return 'Oggi';
+            if (days === 1) return 'Ieri';
+            if (days < 7) return days + ' giorni fa';
+            return d.toLocaleDateString('it');
         },
 
         selectFile(e) {
@@ -521,6 +661,38 @@ function chatApp() {
             } catch (e) {
                 console.error('Error updating knowledge:', e);
                 alert('Errore nel salvare le modifiche');
+            }
+        },
+
+        resetNewKnowledge() {
+            this.newKnowledge = { type: 'costo', title: '', content: '' };
+        },
+
+        async addKnowledge() {
+            if (!this.newKnowledge.title.trim() || !this.newKnowledge.content.trim()) {
+                alert('Inserisci titolo e contenuto');
+                return;
+            }
+            try {
+                const res = await api.post('/api/sessions/knowledge/create', {
+                    knowledge_type: this.newKnowledge.type,
+                    title: this.newKnowledge.title,
+                    content: this.newKnowledge.content
+                });
+                // Aggiungi alla lista
+                this.knowledgeItems.unshift({
+                    id: res.id,
+                    type: res.type,
+                    title: res.title,
+                    content: res.content,
+                    created_at: res.created_at
+                });
+                this.knowledgeCount++;
+                this.showAddKnowledgeForm = false;
+                this.resetNewKnowledge();
+            } catch (e) {
+                console.error('Error adding knowledge:', e);
+                alert('Errore nel salvare la conoscenza');
             }
         }
     }
